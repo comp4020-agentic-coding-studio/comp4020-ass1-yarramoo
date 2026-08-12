@@ -1,4 +1,4 @@
-use std::f64::consts::{FRAC_PI_2, PI};
+use std::f64::consts::FRAC_PI_2;
 use std::sync::Arc;
 
 use wasm_bindgen::prelude::*;
@@ -12,6 +12,14 @@ use raytracer::vector::V3;
 
 const MAX_DEPTH: usize = 8;
 const ORBIT_EPS: f64 = 0.05;
+// The ground is a single giant sphere (radius 100, centred far below the
+// scene) rather than a true infinite plane, so it curves away from the
+// camera's orbit axis. Letting theta reach FRAC_PI_2 puts the camera right
+// at that curved surface — a small overshoot embeds it in the sphere and
+// every ray starts inside solid geometry, rendering solid black. Capping
+// theta comfortably above the horizon keeps the camera clear across the
+// full zoom range.
+const MAX_THETA: f64 = FRAC_PI_2 - 0.15;
 
 /// Mirrors a `MaterialKind` const enum on the TS side.
 const KIND_METAL: u32 = 1;
@@ -134,7 +142,7 @@ impl Scene {
     }
 
     pub fn orbit_camera(&mut self, d_theta: f64, d_phi: f64) {
-        self.theta = (self.theta + d_theta).clamp(ORBIT_EPS, PI - ORBIT_EPS);
+        self.theta = (self.theta + d_theta).clamp(ORBIT_EPS, MAX_THETA);
         self.phi += d_phi;
         self.camera = build_camera(self.width, self.height, self.vfov, self.lookat, self.theta, self.phi, self.orbit_radius);
         self.reset_accumulation();
