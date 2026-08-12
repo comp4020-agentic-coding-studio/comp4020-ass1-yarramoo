@@ -297,6 +297,28 @@ impl Camera {
         Ray::new_with_time(ray_origin, ray_direction, ray_time)
     }
 
+    /// Projects a 3D world point onto this camera's pixel grid as fractional
+    /// (i, j). Returns None if the point is behind the camera or the
+    /// sightline runs parallel to the image plane — both occur for real
+    /// bounce paths (e.g. a ray reflecting back past the camera), so callers
+    /// must handle it by truncating rather than drawing garbage.
+    pub fn project_point(&self, p: V3) -> Option<(f64, f64)> {
+        let direction = p - self.centre;
+        if direction.norm_squared() < 1e-12 { return None; }
+        // pixel_delta_u ⊥ pixel_delta_v by construction, so their cross
+        // product is a valid (unnormalized) image-plane normal.
+        let normal = self.pixel_delta_u.cross(&self.pixel_delta_v);
+        let denom = direction.dot(&normal);
+        if denom.abs() < 1e-9 { return None; }
+        let t = (self.pixel00_loc - self.centre).dot(&normal) / denom;
+        if t <= 0.0 { return None; }
+        let hit = self.centre + t * direction;
+        let rel = hit - self.pixel00_loc;
+        let i = rel.dot(&self.pixel_delta_u) / self.pixel_delta_u.dot(&self.pixel_delta_u);
+        let j = rel.dot(&self.pixel_delta_v) / self.pixel_delta_v.dot(&self.pixel_delta_v);
+        Some((i, j))
+    }
+
     pub fn ray_colour(&self, ray: &Ray, world: &impl Hittable, depth: usize, rng: &mut dyn RngCore) -> Colour {
         if depth == 0 { return V3::default(); }
 

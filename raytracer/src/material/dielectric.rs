@@ -37,6 +37,9 @@ impl Material for Dialectric {
 }
 
 fn reflectance(cosine: f64, refraction_index: f64) -> f64 {
-    let r0 = (1. - refraction_index) / (1. + refraction_index).powi(2);
+    // The whole fraction is squared (Schlick's approximation), not just the
+    // denominator — a bare `.powi(2)` here binds tighter than `/` and would
+    // silently compute (1-n)/(1+n)^2 instead of ((1-n)/(1+n))^2.
+    let r0 = ((1. - refraction_index) / (1. + refraction_index)).powi(2);
     r0 + (1.-r0) * (1. - cosine).powi(5)
 }

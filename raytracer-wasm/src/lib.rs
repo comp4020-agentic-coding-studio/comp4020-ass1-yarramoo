@@ -5,12 +5,11 @@ use wasm_bindgen::prelude::*;
 
 use raytracer::camera::{Camera, CameraBuilder};
 use raytracer::colour::{linear_to_gamma, Colour};
-use raytracer::hittable::{sphere::Sphere, HittableList};
+use raytracer::hittable::{sphere::Sphere, Hittable, HittableList};
 use raytracer::interval::Interval;
 use raytracer::material::{dielectric::Dialectric, lambertian::Lambertian, metal::Metal, Material};
 use raytracer::vector::V3;
 
-const MAX_DEPTH: usize = 8;
 const ORBIT_EPS: f64 = 0.05;
 // The ground is a single giant sphere (radius 100, centred far below the
 // scene) rather than a true infinite plane, so it curves away from the
@@ -103,6 +102,7 @@ pub struct Scene {
     height: u32,
     accum: Vec<Colour>,
     sample_count: u32,
+    max_depth: u32,
 }
 
 #[wasm_bindgen]
@@ -128,6 +128,7 @@ impl Scene {
             height,
             accum: vec![Colour::default(); (width * height) as usize],
             sample_count: 0,
+            max_depth: 8,
         }
     }
 
@@ -139,6 +140,11 @@ impl Scene {
             self.world = build_world(&self.spheres);
             self.reset_accumulation();
         }
+    }
+
+    pub fn set_max_depth(&mut self, depth: u32) {
+        self.max_depth = depth.max(1); // depth=0 would render solid black via ray_colour's early return
+        self.reset_accumulation();
     }
 
     pub fn orbit_camera(&mut self, d_theta: f64, d_phi: f64) {
@@ -164,12 +170,96 @@ impl Scene {
                 let mut colour = Colour::default();
                 for _ in 0..samples_this_pass {
                     let ray = self.camera.get_ray(i, j, &mut rng);
-                    colour += self.camera.ray_colour(&ray, &self.world, MAX_DEPTH, &mut rng);
+                    colour += self.camera.ray_colour(&ray, &self.world, self.max_depth as usize, &mut rng);
                 }
                 self.accum[j * self.width as usize + i] += colour;
             }
         }
         self.sample_count += samples_this_pass;
+    }
+
+    /// Renders `samples` fresh samples per pixel into a local buffer and
+    /// returns it gamma-corrected, exactly like `pixels()` — but never
+    /// touches `self.accum`/`self.sample_count`, so it doesn't disturb the
+    /// live progressive render. Used to snapshot "1 sample" for comparison
+    /// against however far the live render has already converged.
+    pub fn render_snapshot(&self, samples: u32) -> Vec<u8> {
+        let mut rng = rand::rng();
+        let samples = samples.max(1);
+        let mut local = vec![Colour::default(); (self.width * self.height) as usize];
+        for j in 0..self.height as usize {
+            for i in 0..self.width as usize {
+                let mut colour = Colour::default();
+                for _ in 0..samples {
+                    let ray = self.camera.get_ray(i, j, &mut rng);
+                    colour += self.camera.ray_colour(&ray, &self.world, self.max_depth as usize, &mut rng);
+                }
+                local[j * self.width as usize + i] = colour;
+            }
+        }
+
+        let scale = 1.0 / samples as f64;
+        let clamp01 = Interval::new(0.0, 0.999);
+        let mut out = Vec::with_capacity(local.len() * 4);
+        for c in &local {
+            let avg = c * scale;
+            out.push((clamp01.clamp(linear_to_gamma(avg.x)) * 256.0) as u8);
+            out.push((clamp01.clamp(linear_to_gamma(avg.y)) * 256.0) as u8);
+            out.push((clamp01.clamp(linear_to_gamma(avg.z)) * 256.0) as u8);
+            out.push(255);
+        }
+        out
+    }
+
+    /// Traces the ray through pixel (i, j), following its bounce path up to
+    /// `max_depth` vertices, and projects each 3D vertex back onto the
+    /// camera's own pixel grid. Returns a flat `[x0, y0, x1, y1, ...]` list
+    /// of *pixel-space* coordinates the caller can draw as a polyline
+    /// directly over the canvas — vertex 0 is the clicked (i, j) itself, and
+    /// the last vertex is either a surface hit that absorbed the ray or an
+    /// escape point pushed out along the final ray direction.
+    ///
+    /// A vertex whose `project_point` fails (behind the camera, or exactly
+    /// parallel to the image plane) truncates the path there rather than
+    /// drawing garbage — this can genuinely happen for a bounce that heads
+    /// back past the camera.
+    pub fn trace_pixel(&self, i: u32, j: u32, max_depth: u32) -> Vec<f64> {
+        let mut rng = rand::rng();
+        let mut current = self.camera.get_ray(i as usize, j as usize, &mut rng);
+        let mut points_3d: Vec<V3> = Vec::new();
+        const ESCAPE_DISTANCE: f64 = 50.0;
+        for _ in 0..max_depth.max(1) {
+            match self.world.hit(&current, Interval::new(0.001, f64::INFINITY), &mut rng) {
+                None => {
+                    // Not unit length off a primary/Lambertian ray, so
+                    // normalize before extending — otherwise the escape
+                    // segment's length varies wildly by which bounce escaped.
+                    points_3d.push(current.origin + ESCAPE_DISTANCE * current.direction.normalize());
+                    break;
+                }
+                Some(hr) => {
+                    points_3d.push(hr.point);
+                    match hr.material.scatter(&current, &hr, &mut rng) {
+                        None => break, // absorbed
+                        Some((next_ray, _attenuation)) => current = next_ray,
+                    }
+                }
+            }
+        }
+
+        let mut out = Vec::with_capacity((points_3d.len() + 1) * 2);
+        out.push(i as f64);
+        out.push(j as f64);
+        for p in &points_3d {
+            match self.camera.project_point(*p) {
+                Some((x, y)) => {
+                    out.push(x);
+                    out.push(y);
+                }
+                None => break,
+            }
+        }
+        out
     }
 
     /// Gamma-corrected, clamped RGBA — feed straight into `new ImageData(...)`.

@@ -36,6 +36,47 @@ a {
   margin: 0.75rem 0;
 }
 
+.render-settings {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 1px solid #ddd;
+  border-radius: 0.5rem;
+}
+
+.render-setting label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.9rem;
+}
+
+.render-setting-blurb {
+  margin: 0.5rem 0 0;
+  font-size: 0.85rem;
+  color: #555;
+}
+
+.comparison {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 1px solid #ddd;
+  border-radius: 0.5rem;
+}
+
+.comparison-blurb {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #555;
+}
+
+.snapshot-canvas {
+  cursor: default;
+}
+
 .materials {
   display: grid;
   gap: 1rem;
@@ -57,6 +98,13 @@ a {
   flex-direction: column;
   gap: 0.25rem;
   font-size: 0.9rem;
+}
+
+.material-blurb {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: 0.85rem;
+  color: #555;
 }
 
 @media (width <= 480px) {
