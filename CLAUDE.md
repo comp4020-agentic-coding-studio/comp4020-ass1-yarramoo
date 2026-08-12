@@ -1,5 +1,23 @@
 # COMP4020 prototype
 
+## This week: React, and a known red
+
+Switched the template's stack to React + Vite (`@vitejs/plugin-react`) for
+Assignment 1. `main.tsx` mounts `<App />` into `#root` in `index.html`.
+
+Known gap, left red on purpose: `spec/invariants.test.ts`'s "has a navigation
+landmark" and "has exactly one top-level heading" checks read the **built**
+`dist/index.html` as static markup — no JS runs. A pure client-rendered SPA
+ships an empty shell (`<div id="root"></div>`) before hydration, so those two
+invariants fail even though the rendered page (post-JS) has both. Two ways to
+close this, not yet chosen: (a) move `<nav>`/`<h1>` into the static HTML shell
+and have React mount only the interactive region, or (b) pre-render/SSG the
+shell. Fix before shipping — a red invariant at the crit sweep costs marks.
+
+`spec/assignment-1.test.ts` has one deliberately-red placeholder for the
+"testable interaction" line of the brief — wire it to the real control once
+the prototype has one.
+
 This is your starter repo for a COMP4020 prototype: a static site written in
 HTML/CSS/TypeScript that builds to plain HTML/CSS/JS and deploys to GitHub
 Pages. The **deployed site is what gets marked** --- not this repo, and not "it

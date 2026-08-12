@@ -1,5 +1,6 @@
 import { readdirSync } from "node:fs";
 import { join } from "node:path";
+import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
 // Every .html file in the repo is a page and a build entry, so a multi-page
@@ -21,6 +22,7 @@ function htmlEntries(dir = "."): string[] {
 // GitHub Pages path (username.github.io/your-repo/) without further config.
 export default defineConfig({
   base: "./",
+  plugins: [react()],
   build: {
     rollupOptions: {
       input: htmlEntries(),
