@@ -4,15 +4,18 @@
   "type": "module",
   "scripts": {
     "prepare": "git rev-parse --git-dir >/dev/null 2>&1 && git config core.hooksPath .githooks || true",
-    "dev": "vite",
-    "build": "vite build",
+    "build:wasm": "bash scripts/build-wasm.sh",
+    "dev": "pnpm build:wasm && vite",
+    "build": "pnpm build:wasm && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "pnpm build:wasm && tsc --noEmit",
     "check": "pnpm typecheck && pnpm build && oxlint --ignore-path .gitignore && stylelint \"**/*.css\" --ignore-path .gitignore --allow-empty-input && vitest run",
     "check:evidence": "node scripts/check-evidence.ts",
     "test": "vitest run"
   },
   "devDependencies": {
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.3",
     "@types/jsdom": "^27.0.0",
     "@types/node": "^24.0.0",
     "@types/react": "^19.2.18",

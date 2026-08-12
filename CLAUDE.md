@@ -14,9 +14,10 @@ close this, not yet chosen: (a) move `<nav>`/`<h1>` into the static HTML shell
 and have React mount only the interactive region, or (b) pre-render/SSG the
 shell. Fix before shipping — a red invariant at the crit sweep costs marks.
 
-`spec/assignment-1.test.ts` has one deliberately-red placeholder for the
-"testable interaction" line of the brief — wire it to the real control once
-the prototype has one.
+`spec/assignment-1.test.ts` now wires the "testable interaction" line of the
+brief to the real control: dragging the ray-tracer canvas orbits the camera
+and resets the progressive render. See "Interactive ray tracer: wasm
+architecture" below for how that's built.
 
 This is your starter repo for a COMP4020 prototype: a static site written in
 HTML/CSS/TypeScript that builds to plain HTML/CSS/JS and deploys to GitHub
@@ -32,6 +33,42 @@ and this repo's name tells you which deliverable it is. Run the course plugin's
 course API, carries your harness forward from last week, and helps you turn the
 spec's checkable lines into tests of your own. Read the spec before you build,
 and see `spec/README.md` for how the checks in this repo relate to it.
+
+## Interactive ray tracer: wasm architecture
+
+The interaction is a Rust ray tracer (vendored from
+`ray_tracing_in_one_weekend`) compiled to WebAssembly and driven from a
+canvas. Two Rust crates in a Cargo workspace at the repo root:
+
+- `raytracer/` — the vendored tracer, mostly untouched. Its native CLI
+  (`cargo run -p raytracer`) still works; that's the check that the vendoring
+  didn't break anything.
+- `raytracer-wasm/` — a thin `wasm-bindgen` binding crate exposing a `Scene`
+  class: `render_pass(n)` traces `n` more samples per pixel into a running
+  accumulator, `pixels()` returns gamma-corrected RGBA bytes, and
+  `orbit_camera`/`zoom`/`set_sphere_material` mutate state and reset the
+  accumulator so refinement restarts. All wasm/JS-facing dependencies
+  (`wasm-bindgen`, `getrandom`'s `wasm_js` backend, `console_error_panic_hook`)
+  live here, not in `raytracer`.
+
+**Single-threaded, deliberately.** Multithreaded wasm needs
+`SharedArrayBuffer`, which needs COOP/COEP response headers — GitHub Pages
+can't set those. Progressive per-frame refinement (watch the image sharpen)
+is the interaction's "wow", not raw speed.
+
+**`pnpm build:wasm` is auto-chained** into `dev`, `build`, and `typecheck`
+(see `scripts/build-wasm.sh`) so every entry point is self-sufficient on a
+fresh checkout — critically, the deploy job's bare `pnpm build`. It's
+incremental, so the redundant rebuild inside `pnpm check` costs seconds.
+
+**wasm-bindgen version pin, the gotcha that bites silently:** the
+`wasm-bindgen` crate version (`raytracer-wasm/Cargo.toml`) and the
+`wasm-bindgen-cli` version (installed locally, and in
+`.github/workflows/checks.yml`) must match *exactly*. A mismatch doesn't fail
+the build — it fails at runtime in the browser with an opaque
+schema-version-mismatch error. Currently pinned to `0.2.127` in both places;
+if you ever bump the crate version, update the CLI install and the CI step
+together.
 
 ## How to work in here
 

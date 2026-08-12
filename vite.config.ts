@@ -7,7 +7,10 @@ import { defineConfig } from "vite";
 // hand-written site needs no build config: add pages, link them, ship.
 // (Vite's default would build only the root index.html and silently drop the
 // rest from dist/ — fine locally, 404s deployed.)
-const SKIP = new Set(["node_modules", "dist", "spec", "scripts", "reflections"]);
+const SKIP = new Set([
+  "node_modules", "dist", "spec", "scripts", "reflections",
+  "target", "raytracer", "raytracer-wasm",
+]);
 
 function htmlEntries(dir = "."): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {

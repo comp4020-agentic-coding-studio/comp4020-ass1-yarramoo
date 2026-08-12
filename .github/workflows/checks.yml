@@ -33,6 +33,14 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "."
+      - name: Install wasm-bindgen-cli (must match raytracer-wasm/Cargo.toml's pinned wasm-bindgen version)
+        run: cargo install wasm-bindgen-cli --version 0.2.127 --locked
       - run: pnpm install --frozen-lockfile
       - name: Build, lint, and run the spec
         run: pnpm check
@@ -87,6 +95,14 @@ jobs:
         with:
           node-version: 24
           cache: pnpm
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: "."
+      - name: Install wasm-bindgen-cli (must match raytracer-wasm/Cargo.toml's pinned wasm-bindgen version)
+        run: cargo install wasm-bindgen-cli --version 0.2.127 --locked
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
       - uses: actions/configure-pages@v6

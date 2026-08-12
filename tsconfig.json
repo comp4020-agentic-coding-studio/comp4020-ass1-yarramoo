@@ -14,5 +14,5 @@
     "useDefineForClassFields": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["*.ts", "*.tsx", "spec"]
+  "include": ["*.ts", "*.tsx", "spec", "raytracer-wasm/pkg"]
 }

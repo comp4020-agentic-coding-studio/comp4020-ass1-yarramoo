@@ -14,3 +14,53 @@ main {
 a {
   color: #0b5fff;
 }
+
+.raytracer-canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-width: 30rem;
+  border-radius: 0.5rem;
+  background: #111;
+  touch-action: none;
+  cursor: grab;
+}
+
+.raytracer-canvas:active {
+  cursor: grabbing;
+}
+
+.controls {
+  display: flex;
+  gap: 0.5rem;
+  margin: 0.75rem 0;
+}
+
+.materials {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 1px solid #ddd;
+  border-radius: 0.5rem;
+}
+
+.material-control {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: center;
+}
+
+.material-control label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.9rem;
+}
+
+@media (width <= 480px) {
+  body {
+    padding: 1rem;
+  }
+}
