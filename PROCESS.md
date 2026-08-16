@@ -15,53 +15,36 @@ next-event estimation against real light sources.
 ## The moments that mattered
 
 **A precedence bug found by writing the explainer, not by testing the
-render.** Writing a UI blurb for the dielectric material meant reading
-`reflectance()`'s Schlick approximation line by line against the book's
-formula, and `.powi(2)` turned out to bind tighter than the surrounding
-division — silently computing `(1-n)/(1+n)^2` instead of `((1-n)/(1+n))^2`.
-The render still looked plausible at a glance, which is exactly why it had
-gone unnoticed; I only caught it because the blurb forced me to justify the
-formula in words, not because a check failed.
+render.** Writing a UI blurb for the dielectric material meant checking
+`reflectance()`'s Schlick approximation against the book's formula line by
+line — `.powi(2)` bound tighter than the surrounding division, silently
+computing `(1-n)/(1+n)^2` instead of `((1-n)/(1+n))^2`. The render still
+looked plausible at a glance, which is why it had gone unnoticed; only
+justifying the formula in words caught it, not a passing check.
 [`f6bf55e`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-yarramoo/commit/f6bf55e11e6adfc46b796a8daac632423cf466c3)
 
 **Making book 3 backward-compatible by construction, not by branching.**
-The obvious way to add PDF-based sampling is an `if` at every call site
-checking which mode is active. Instead I gave `Hittable`/`Material` defaulted
-trait methods (`pdf_value`/`random` default to "not a light"; `is_specular`/
-`scattering_pdf` default to "behave exactly as before") so every existing
-material and every light-less scene renders bit-for-bit identical to book 1/2
-unless it explicitly opts in — only `Lambertian` and `Quad` override anything.
-I didn't just trust the design: I added `cargo test` cases asserting cosine
-and mixture sampling converge to the *same* total radiance as the naive
-path on scenes with no lights, so "unaffected unless opted in" is a checked
-claim, not an assumption.
+Rather than an `if` at every call site for which sampling mode is active, I
+gave `Hittable`/`Material` defaulted trait methods (`pdf_value`/`random`
+default to "not a light"; `is_specular`/`scattering_pdf` default to "behave
+exactly as before"), so every existing material and light-less scene renders
+bit-for-bit identical to book 1/2 unless it explicitly opts in — only
+`Lambertian` and `Quad` override anything. Verified with `cargo test` cases
+asserting cosine and mixture sampling converge to the same radiance as the
+naive path on light-less scenes, not just assumed.
 [`b5ecb00...30181e3`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-yarramoo/compare/b5ecb00...30181e3)
-
-**A UX bug diagnosed by reading the code, not guessing.** The user reported
-the naive/cosine/mixture comparison panels as "black and empty." Rather than
-assume a rendering bug, I traced it to `render_snapshot_with_strategy` only
-ever firing on a manual button click — the panels were empty because nothing
-had rendered into them yet, not because rendering was broken. The fix was an
-auto-render-on-ready effect plus a layout fix (the three panels were laid out
-side-by-side in flex-wrap, overflowing the ~260-340px-wide control widget).
-Verified by actually opening the page and watching the panels populate,
-per the project's own "the rendered page is the truth" rule.
-[`98b3ae3`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-yarramoo/commit/98b3ae3)
 
 **A phone bug invisible from the desktop view I'd been testing in.** The
 scrollytelling redesign narrowed the narrative column so the render stayed
 visible beside it on desktop — but the phone-width fallback widens that same
-column back to full-bleed for legibility, and I hadn't noticed its CSS grid
-box (gaps between cards included) sat in front of the canvas the whole
-scroll, at every width. On desktop the narrow column left most of the
-viewport clickable regardless, so the render was still reachable and the bug
-stayed silent; on phone, the full-width column covered every pixel of the
-scrollable page, so the click-to-trace/drag-to-orbit interaction — this
-project's whole reason for existing — was completely unreachable there.
-Caught by scripting `elementFromPoint` across the full scroll range at
-390×844 rather than trusting a few screenshots, and fixed by letting
-`.story`'s own box pass pointer events through, catching them again only on
-the actual card children.
+column back to full-bleed, and its CSS grid box (gaps included) sat in front
+of the canvas the whole scroll. On desktop the narrow column left most of
+the viewport clickable, so the bug stayed silent; on phone, the full-width
+column covered every pixel, so click-to-trace/drag-to-orbit — this project's
+whole reason for existing — was unreachable. Caught by scripting
+`elementFromPoint` across the full scroll range at 390×844 rather than
+trusting a few screenshots, fixed by letting `.story`'s own box pass pointer
+events through, catching them again only on the card children.
 [`447f088`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-yarramoo/commit/447f088)
 
 **Fixing the harness, not just the symptom, when a whole feature arc went
