@@ -31,4 +31,11 @@ impl Material for Lambertian {
         };
         Some((Ray::new_with_time(hr.point, scatter_direction, r_in.time), self.tex.value(hr.texture_coords, hr.point)))
     }
+
+    fn is_specular(&self) -> bool { false }
+
+    fn scattering_pdf(&self, _r_in: &Ray, hr: &HitRecord, scattered: &Ray) -> f64 {
+        let cosine_theta = hr.normal.dot(&scattered.direction.normalize());
+        (cosine_theta / std::f64::consts::PI).max(0.)
+    }
 }

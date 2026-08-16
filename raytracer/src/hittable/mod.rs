@@ -39,6 +39,17 @@ impl HitRecord {
 pub trait Hittable: Send + Sync {
     fn hit(&self, ray: &Ray, t: Interval, rng: &mut dyn RngCore) -> Option<HitRecord>;
     fn bounding_box(&self) -> &AABB;
+
+    /// Density (solid angle, in the direction/PDF sense) of sampling this
+    /// object as seen from `origin` looking along `direction`. Only
+    /// meaningful for objects used as explicit light sources; the default
+    /// of 0 marks "not a sampleable light".
+    fn pdf_value(&self, _origin: V3, _direction: V3) -> f64 { 0.0 }
+
+    /// A random direction from `origin` toward this object, distributed
+    /// according to `pdf_value`. The default is an arbitrary placeholder —
+    /// callers should never invoke it unless `pdf_value` is overridden too.
+    fn random(&self, _origin: V3, _rng: &mut dyn RngCore) -> V3 { V3::new(1., 0., 0.) }
 }
 
 #[derive(Default)]

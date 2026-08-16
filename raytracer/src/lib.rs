@@ -10,6 +10,8 @@ pub mod texture;
 pub mod rtw_image;
 pub mod perlin;
 pub mod demo_scenes;
+pub mod onb;
+pub mod pdf;
 
 pub mod vector {
     use nalgebra::{Vector2, Vector3};

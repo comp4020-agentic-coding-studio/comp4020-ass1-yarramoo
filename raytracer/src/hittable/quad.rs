@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use rand::RngCore;
+use rand::{Rng, RngCore};
 
 use crate::{aabb::AABB, hittable::{HitRecord, Hittable, HittableList}, interval::Interval, material::Material, ray::Ray, texture::TextureCoords, vector::V3, world_add};
 
@@ -76,6 +76,26 @@ impl Hittable for Quad {
     fn bounding_box(&self) -> &AABB {
         &self.bbox
     }
+
+    fn pdf_value(&self, origin: V3, direction: V3) -> f64 {
+        let ray = Ray::new(origin, direction);
+        let Some(hr) = self.hit(&ray, Interval::new(0.001, f64::INFINITY), &mut rand::rng()) else {
+            return 0.0;
+        };
+
+        let area = self.u.cross(&self.v).norm();
+        let distance_squared = hr.t * hr.t * direction.norm_squared();
+        let cosine = (direction.dot(&hr.normal) / direction.norm()).abs();
+
+        distance_squared / (cosine * area)
+    }
+
+    fn random(&self, origin: V3, rng: &mut dyn RngCore) -> V3 {
+        let a: f64 = rng.random();
+        let b: f64 = rng.random();
+        let p = self.q + (a * self.u) + (b * self.v);
+        p - origin
+    }
 }
 
 pub fn quad_box(a: V3, b: V3, material: &Arc<dyn Material>) -> HittableList {
@@ -96,4 +116,36 @@ pub fn quad_box(a: V3, b: V3, material: &Arc<dyn Material>) -> HittableList {
     world_add!(Quad sides, (min.x, min.y, min.z), ( dx.x,  dx.y,  dx.z), (dz.x, dz.y, dz.z), material);
 
     sides
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::material::lambertian::Lambertian;
+
+    #[test]
+    fn pdf_value_matches_the_closed_form_area_distance_cosine_formula() {
+        // Unit quad in the z=0 plane, spanning (0,0,0)..(1,1,0), normal +z.
+        let material: Arc<dyn Material> = Arc::new(Lambertian::from_rgb(1., 1., 1.));
+        let quad = Quad::new(V3::new(0., 0., 0.), V3::new(1., 0., 0.), V3::new(0., 1., 0.), &material);
+
+        let origin = V3::new(0.5, 0.5, 5.);
+        let direction = V3::new(0., 0., -1.);
+
+        // area = 1, t = 5, cosine = 1 ⇒ pdf = t² * |dir|² / (cosine * area) = 25.
+        let expected = 25.0;
+        let actual = quad.pdf_value(origin, direction);
+        assert!((actual - expected).abs() < 1e-9, "actual was {actual}");
+    }
+
+    #[test]
+    fn pdf_value_is_zero_when_the_ray_misses_the_quad() {
+        let material: Arc<dyn Material> = Arc::new(Lambertian::from_rgb(1., 1., 1.));
+        let quad = Quad::new(V3::new(0., 0., 0.), V3::new(1., 0., 0.), V3::new(0., 1., 0.), &material);
+
+        let origin = V3::new(5., 5., 5.);
+        let direction = V3::new(0., 0., -1.);
+
+        assert_eq!(quad.pdf_value(origin, direction), 0.0);
+    }
 }
