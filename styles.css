@@ -67,15 +67,18 @@ a {
   color: #ddd;
 }
 
-/* The scrolling narrative: a centred column of cards that floats above the
+/* The scrolling narrative: a narrow column of cards that floats above the
    fixed full-viewport canvas as the visitor scrolls down the page, each
    section pinning the background render to whichever concept it's discussing
-   (see the IntersectionObserver in App.tsx). */
+   (see the IntersectionObserver in App.tsx). Kept off to one side, narrow,
+   and translucent rather than a wide centred block, so the render — usually
+   centred in the frame — stays visible past the text instead of being
+   covered by it. */
 .story {
   position: relative;
   z-index: 1;
-  max-width: 640px;
-  margin: 0 auto;
+  max-width: 420px;
+  margin-inline: max(1.5rem, 6vw) auto;
   padding: 5.5rem 1rem 4rem;
   display: grid;
   gap: 2.5rem;
@@ -85,8 +88,23 @@ a {
 .story-section {
   padding: 1.25rem 1.5rem;
   border-radius: 0.75rem;
-  background: rgb(255 255 255 / 96%);
+  background: rgb(255 255 255 / 78%);
+  backdrop-filter: blur(10px) saturate(120%);
   box-shadow: 0 0.5rem 1.5rem rgb(0 0 0 / 25%);
+}
+
+/* Below ~700px there's no spare width to give the render — fall back to a
+   centred, near-opaque column like a normal document, legibility first. */
+@media (width <= 700px) {
+  .story {
+    max-width: none;
+    margin-inline: auto;
+  }
+
+  .story-hero,
+  .story-section {
+    background: rgb(255 255 255 / 94%);
+  }
 }
 
 .story-hero h1 {
@@ -108,9 +126,16 @@ a {
   display: flex;
   flex-direction: column;
   border-radius: 0.75rem;
-  background: rgb(255 255 255 / 96%);
+  background: rgb(255 255 255 / 78%);
+  backdrop-filter: blur(10px) saturate(120%);
   box-shadow: 0 0.5rem 1.5rem rgb(0 0 0 / 25%);
   overflow: hidden;
+}
+
+@media (width <= 700px) {
+  .control-widget {
+    background: rgb(255 255 255 / 94%);
+  }
 }
 
 .control-widget-header {

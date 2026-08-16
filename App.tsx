@@ -633,10 +633,16 @@ export function App() {
     ];
     const idsByElement = new Map(sections.filter(([, el]) => el).map(([id, el]) => [el as HTMLElement, id]));
 
+    // rootMargin shrinks the observer's root to a single horizontal line at
+    // the viewport's vertical centre, so a section is "intersecting" exactly
+    // when it's crossing that centreline — independent of the section's own
+    // height. A plain intersectionRatio threshold breaks once a section (with
+    // its prose wrapped narrower) grows taller than ~2x the viewport, since
+    // the visible fraction of it then never reaches that threshold at all.
     const observer = new IntersectionObserver(
       (entries) => {
         for (const entry of entries) {
-          if (!entry.isIntersecting || entry.intersectionRatio < 0.5) continue;
+          if (!entry.isIntersecting) continue;
           const id = idsByElement.get(entry.target as HTMLElement);
           if (id === undefined || sceneKindRef.current === id) continue;
           sceneKindRef.current = id;
@@ -648,7 +654,7 @@ export function App() {
           if (id === 0) setControls(HERO_SPHERES.map((s) => ({ ...s.initial })));
         }
       },
-      { threshold: [0.5] },
+      { rootMargin: "-50% 0px -50% 0px", threshold: 0 },
     );
     for (const [, el] of sections) {
       if (el) observer.observe(el);
