@@ -21,7 +21,7 @@ line — `.powi(2)` bound tighter than the surrounding division, silently
 computing `(1-n)/(1+n)^2` instead of `((1-n)/(1+n))^2`. The render still
 looked plausible at a glance, which is why it had gone unnoticed; only
 justifying the formula in words caught it, not a passing check.
-[`f6bf55e`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-yarramoo/commit/f6bf55e11e6adfc46b796a8daac632423cf466c3)
+[`15c350f`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-yarramoo/commit/15c350fe7f3a7e3df3bd36f5fc8eb62cff8c5e5d)
 
 **Making book 3 backward-compatible by construction, not by branching.**
 Rather than an `if` at every call site for which sampling mode is active, I
