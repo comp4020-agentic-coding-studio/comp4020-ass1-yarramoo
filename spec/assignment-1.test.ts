@@ -186,20 +186,36 @@ describe("assignment-1: the interaction", () => {
     await vi.waitFor(() => expect(ctxStub.arc).toHaveBeenCalled());
   });
 
-  it("shows the accumulate-rays toggle, defaulting to off", async () => {
+  it("shows the cast-a-new-ray toggle, defaulting to off so clicks visualise saved rays", async () => {
     render(createElement(App));
     await screen.findByTestId("sample-count");
 
-    const toggle = screen.getByLabelText(/accumulate every ray/i) as HTMLInputElement;
+    const toggle = screen.getByLabelText(/cast a new ray/i) as HTMLInputElement;
     expect(toggle.checked).toBe(false);
   });
 
-  it("keeps tracing correctly across repeated clicks with accumulate mode on", async () => {
+  it("keeps tracing correctly across repeated clicks with the default accumulate behaviour", async () => {
+    render(createElement(App));
+    await screen.findByTestId("sample-count");
+
+    const canvas = screen.getByRole("img", { name: /drag to orbit the camera, or click/i });
+    const user = userEvent.setup();
+    for (let i = 0; i < 2; i++) {
+      await user.pointer([
+        { keys: "[MouseLeft>]", target: canvas, coords: { x: 100, y: 100 } },
+        { keys: "[/MouseLeft]" },
+      ]);
+    }
+
+    await vi.waitFor(() => expect(ctxStub.arc).toHaveBeenCalled());
+  });
+
+  it("keeps tracing correctly across repeated clicks once cast-a-new-ray is switched on", async () => {
     render(createElement(App));
     await screen.findByTestId("sample-count");
 
     const user = userEvent.setup();
-    await user.click(screen.getByLabelText(/accumulate every ray/i));
+    await user.click(screen.getByLabelText(/cast a new ray/i));
 
     const canvas = screen.getByRole("img", { name: /drag to orbit the camera, or click/i });
     for (let i = 0; i < 2; i++) {

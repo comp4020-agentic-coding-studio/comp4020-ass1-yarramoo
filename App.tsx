@@ -390,9 +390,12 @@ export function App() {
   // another click.
   const lastClickedPixelRef = useRef<{ px: number; py: number } | null>(null);
   // Mirrors `accumulateRays` state for the pointer-events effect below (only
-  // re-subscribes on [ready]) — same pattern as maxDepthRef.
-  const accumulateRaysRef = useRef(false);
-  const [accumulateRays, setAccumulateRays] = useState(false);
+  // re-subscribes on [ready]) — same pattern as maxDepthRef. Defaults on: a
+  // click's default job is to reveal the saved history at that pixel, not
+  // to bury it under a fresh replacement — "cast a new ray" (below) is the
+  // opt-in.
+  const accumulateRaysRef = useRef(true);
+  const [accumulateRays, setAccumulateRays] = useState(true);
   // Mirrors `samplingStrategy` state for the render loop and pointer-events
   // effect (both only re-subscribe on [ready]) — same pattern as
   // maxDepthRef. Drives both the real progressive render (via
@@ -909,6 +912,16 @@ export function App() {
             </select>
           </label>
         )}
+        {clickMode === "trace" && (
+          <label className="render-setting-checkbox">
+            <input
+              type="checkbox"
+              checked={!accumulateRays}
+              onChange={(e) => updateAccumulateRays(!e.target.checked)}
+            />
+            Cast a new ray each click
+          </label>
+        )}
       </div>
       <div className="story">
         <section className="story-hero">
@@ -1122,18 +1135,11 @@ export function App() {
             </p>
           </div>
           <div className="render-setting">
-            <label className="render-setting-checkbox">
-              <input
-                type="checkbox"
-                checked={accumulateRays}
-                onChange={(e) => updateAccumulateRays(e.target.checked)}
-              />
-              Accumulate every ray traced through a pixel
-            </label>
             <p className="render-setting-blurb">
-              On, repeated clicks on the same wall keep every past bounce instead of replacing
-              it — one click becomes a growing scatter plot of a random process, filling in a
-              cosine-shaped fan.
+              By default, every click here saves its bounce path rather than replacing the last
+              one — repeated clicks on the same wall grow into a scatter plot of a random
+              process, filling in a cosine-shaped fan. Check "Cast a new ray each click" in the
+              top-right panel to see only the newest bounce instead.
             </p>
           </div>
           <div className="render-setting">
