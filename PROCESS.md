@@ -2,10 +2,11 @@
 
 ## What I built
 
-Last year I implemented Shirley's *Ray Tracing* series, going through in Rust 
-rather than the usual C++. I always wanted to build a wrapper around the project
-to play with scenes interactively. This project does that and focuses learning 
-about ray tracing through one mechanic: click a pixel, see
+Last year I implemented Shirley's [*Ray Tracing*](https://raytracing.github.io/)
+series, going through in Rust rather than the usual C++. I always wanted to
+build a wrapper around the project to play with scenes interactively. This
+project does that and focuses learning about ray tracing through one
+mechanic: click a pixel, see
 what happened to its ray. That mechanic carries book 1/2 features (materials,
 depth of field, chromatic dispersion, custom JSON scenes, a Cornell box and
 foggy room) and book 3's actual subject — orthonormal bases, PDFs, and
