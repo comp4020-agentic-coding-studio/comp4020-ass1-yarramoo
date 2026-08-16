@@ -82,10 +82,21 @@ a {
   padding: 5.5rem 1rem 4rem;
   display: grid;
   gap: 2.5rem;
+
+  /* The grid box itself spans the full column, gaps included, which would
+     otherwise swallow clicks/taps meant for the canvas underneath even in
+     the empty space between cards. Only the cards themselves need to catch
+     pointer events. */
+  pointer-events: none;
+}
+
+.story > * {
+  pointer-events: auto;
 }
 
 .story-hero,
-.story-section {
+.story-section,
+.mc-explainer {
   padding: 1.25rem 1.5rem;
   border-radius: 0.75rem;
   background: rgb(255 255 255 / 78%);
@@ -96,14 +107,32 @@ a {
 /* Below ~700px there's no spare width to give the render — fall back to a
    centred, near-opaque column like a normal document, legibility first. */
 @media (width <= 700px) {
+  /* The topbar wraps onto three lines at this width, and the touch-target
+     padding below makes it taller still — clear it generously rather than
+     matching its exact height, since that height isn't fixed. */
   .story {
     max-width: none;
     margin-inline: auto;
+    padding-top: 8rem;
   }
 
   .story-hero,
-  .story-section {
+  .story-section,
+  .mc-explainer {
     background: rgb(255 255 255 / 94%);
+  }
+
+  /* Text-sized nav links and buttons are fine for a mouse pointer but too
+     thin to reliably tap; pad them out to a touch-friendly hit area without
+     changing the desktop layout at all. */
+  .app-topbar nav a {
+    display: inline-block;
+    padding: 0.5rem 0;
+  }
+
+  button {
+    padding: 0.5rem 0.75rem;
+    min-height: 2.5rem;
   }
 }
 
