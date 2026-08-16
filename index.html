@@ -7,6 +7,17 @@
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
+    <!-- Static shell: present in the built HTML before any JS runs, so the
+         nav-landmark/single-heading invariants hold against the raw markup.
+         React hydrates around this rather than replacing it — see the
+         SampleCountReadout portal in App.tsx. -->
+    <header class="app-topbar">
+      <nav aria-label="Primary">
+        <a href="./">Home</a>
+      </nav>
+      <h1>Interactive ray tracer</h1>
+      <p id="sample-count-mount" data-testid="sample-count"></p>
+    </header>
     <div id="root"></div>
     <script type="module" src="./main.tsx"></script>
   </body>

@@ -1,6 +1,19 @@
 import { useEffect, useRef, useState } from "react";
 import type { RefObject } from "react";
+import { createPortal } from "react-dom";
 import init, { Scene } from "./raytracer-wasm/pkg/raytracer_wasm.js";
+
+// The nav/heading live as a static shell in index.html (so the built HTML
+// carries them before any JS runs — see the invariants spec). This portals
+// the one dynamic piece, the sample count, into that same static <p> rather
+// than App rendering its own competing header. In tests, App mounts without
+// that static shell present, so it falls back to rendering the paragraph
+// inline — same testid, same text, no shell required.
+function SampleCountReadout({ sampleCount }: { sampleCount: number }) {
+  const content = <>Samples per pixel: {sampleCount}</>;
+  const mount = typeof document !== "undefined" ? document.getElementById("sample-count-mount") : null;
+  return mount ? createPortal(content, mount) : <p data-testid="sample-count">{content}</p>;
+}
 
 // The render itself fills the whole viewport rather than a fixed canvas
 // size, but a full-screen *ray traced* resolution would tank convergence
@@ -813,13 +826,7 @@ export function App() {
         role="img"
         aria-label="Ray-traced scene. Drag to orbit the camera, or click to trace a ray."
       />
-      <header className="app-topbar">
-        <nav aria-label="Primary">
-          <a href="./">Home</a>
-        </nav>
-        <h1>Interactive ray tracer</h1>
-        <p data-testid="sample-count">Samples per pixel: {sampleCount}</p>
-      </header>
+      <SampleCountReadout sampleCount={sampleCount} />
       <main className="control-widget">
         <div className="control-widget-header">
           <span className="control-widget-title">Controls</span>
