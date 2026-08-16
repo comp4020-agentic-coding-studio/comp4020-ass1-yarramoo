@@ -900,27 +900,58 @@ export function App() {
           />
           Click shows a direction sample "sunburst" instead of a full bounce path
         </label>
+        <details className="click-mode-panel-detail">
+          <summary>What's this?</summary>
+          <p>
+            Off (default): a click traces a full bounce path, dot per bounce. On: a click fires{" "}
+            {SUNBURST_SAMPLE_COUNT} single-bounce sample directions from the hit point and fans
+            them out, showing the shape of a sampling strategy directly instead of one path
+            through it.
+          </p>
+        </details>
         {clickMode === "sunburst" && (
-          <label>
-            Sunburst distribution
-            <select value={sunburstMode} onChange={(e) => updateSunburstMode(Number(e.target.value))}>
-              {SUNBURST_MODES.map((m) => (
-                <option key={m.value} value={m.value}>
-                  {m.label}
-                </option>
-              ))}
-            </select>
-          </label>
+          <>
+            <label>
+              Sunburst distribution
+              <select value={sunburstMode} onChange={(e) => updateSunburstMode(Number(e.target.value))}>
+                {SUNBURST_MODES.map((m) => (
+                  <option key={m.value} value={m.value}>
+                    {m.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <details className="click-mode-panel-detail">
+              <summary>What's this?</summary>
+              <p>
+                Uniform hemisphere samples every direction equally, so the fan is flat.
+                Cosine-weighted (the book's default) clusters samples near the surface normal,
+                matching how matte materials actually scatter light. Aimed at the light (NEE)
+                points every sample straight at a light source instead — fast where the light is
+                small and hard to hit by chance.
+              </p>
+            </details>
+          </>
         )}
         {clickMode === "trace" && (
-          <label className="render-setting-checkbox">
-            <input
-              type="checkbox"
-              checked={!accumulateRays}
-              onChange={(e) => updateAccumulateRays(!e.target.checked)}
-            />
-            Cast a new ray each click
-          </label>
+          <>
+            <label className="render-setting-checkbox">
+              <input
+                type="checkbox"
+                checked={!accumulateRays}
+                onChange={(e) => updateAccumulateRays(!e.target.checked)}
+              />
+              Cast a new ray each click
+            </label>
+            <details className="click-mode-panel-detail">
+              <summary>What's this?</summary>
+              <p>
+                Off (default): repeated clicks on the same spot save every past bounce path,
+                building a scatter of a random process. On: each click replaces the display with
+                just the newest bounce.
+              </p>
+            </details>
+          </>
         )}
       </div>
       <div className="story">
@@ -996,8 +1027,12 @@ export function App() {
         <section id="materials" className="story-section" ref={materialsSectionRef}>
           <h2>Trace a ray yourself</h2>
           <p>
-            Drag to orbit the camera. Click without dragging to trace a single ray: each dot is
-            a bounce, the line is the path it took, and a gold glowing dot means it hit a light.
+            Drag to orbit the camera. Click without dragging to trace a ray: each dot is a
+            bounce, the line is the path it took, and a gold glowing dot means it hit a light.
+            By default, every click saves its path rather than replacing the last one — click the
+            same spot again and the paths pile up into a scatter of a random process. The panel in
+            the top-right corner explains the click-mode options, including a toggle back to
+            showing only the newest ray.
           </p>
           <p className="render-setting-blurb">
             <strong>Known quirk:</strong> a bounce that reflects back past the camera has its

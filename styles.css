@@ -112,6 +112,24 @@ a {
   gap: 0.4rem;
 }
 
+/* Collapsed by default so the panel stays small — a visitor who wants the
+   "why" behind a toggle can pull it open without leaving the panel. */
+.click-mode-panel-detail {
+  margin-block-start: -0.15rem;
+}
+
+.click-mode-panel-detail summary {
+  cursor: pointer;
+  font-size: 0.75rem;
+  color: #555;
+}
+
+.click-mode-panel-detail p {
+  margin: 0.3rem 0 0;
+  font-size: 0.75rem;
+  color: #555;
+}
+
 /* Below ~700px the topbar wraps onto three lines (see the matching .story
    rule), so the panel needs the same generous top clearance and a tighter
    footprint to avoid crowding a narrow screen. */
