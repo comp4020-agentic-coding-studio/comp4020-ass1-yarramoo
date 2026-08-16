@@ -100,7 +100,7 @@ const PRESET_DEFAULT_DOF: Record<number, number> = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 
 
 // Mirrors Scene::set_sampling_strategy's mode encoding.
 const SAMPLING_STRATEGIES = [
-  { value: 0, label: "Naive (book 1 approximation)" },
+  { value: 0, label: "Naive (approximate diffuse)" },
   { value: 1, label: "Cosine-weighted importance sampling" },
   { value: 2, label: "Mixture (cosine + direct light sampling)" },
 ] as const;
@@ -1125,7 +1125,7 @@ export function App() {
               </select>
             </label>
             <p className="render-setting-blurb">
-              Naive (book 1's rough approximation), cosine (proper importance sampling for a
+              Naive (a rough approximation of diffuse scattering), cosine (proper importance sampling for a
               matte surface's brightness), or mixture, which also aims some rays straight at the
               light. Under mixture, bounce segments below are coloured by which PDF produced them
               (teal = cosine, gold = light-aimed).
