@@ -887,6 +887,29 @@ export function App() {
         aria-label="Ray-traced scene. Drag to orbit the camera, or click to trace a ray."
       />
       <SampleCountReadout sampleCount={sampleCount} />
+      <div className="click-mode-panel">
+        <p className="click-mode-panel-title">Click mode</p>
+        <label className="render-setting-checkbox">
+          <input
+            type="checkbox"
+            checked={clickMode === "sunburst"}
+            onChange={(e) => updateClickMode(e.target.checked ? "sunburst" : "trace")}
+          />
+          Click shows a direction sample "sunburst" instead of a full bounce path
+        </label>
+        {clickMode === "sunburst" && (
+          <label>
+            Sunburst distribution
+            <select value={sunburstMode} onChange={(e) => updateSunburstMode(Number(e.target.value))}>
+              {SUNBURST_MODES.map((m) => (
+                <option key={m.value} value={m.value}>
+                  {m.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+      </div>
       <div className="story">
         <section className="story-hero">
           <h1>One ray at a time</h1>
@@ -1132,32 +1155,13 @@ export function App() {
             </p>
           </div>
           <div className="render-setting">
-            <label className="render-setting-checkbox">
-              <input
-                type="checkbox"
-                checked={clickMode === "sunburst"}
-                onChange={(e) => updateClickMode(e.target.checked ? "sunburst" : "trace")}
-              />
-              Click shows a direction sample "sunburst" instead of a full bounce path
-            </label>
             <p className="render-setting-blurb">
-              Fires {SUNBURST_SAMPLE_COUNT} single-bounce samples from one clicked point and fans
-              them out, showing a strategy's shape directly in one click. Cosine clusters
-              visibly toward the surface normal; aimed-at-the-light snaps every sample straight
-              at the ceiling.
+              The click-mode panel in the top-right corner can swap what a click produces: fires{" "}
+              {SUNBURST_SAMPLE_COUNT} single-bounce samples from one clicked point and fans them
+              out instead of tracing a full path, showing a strategy's shape directly in one
+              click. Cosine clusters visibly toward the surface normal; aimed-at-the-light snaps
+              every sample straight at the ceiling.
             </p>
-            {clickMode === "sunburst" && (
-              <label>
-                Sunburst distribution
-                <select value={sunburstMode} onChange={(e) => updateSunburstMode(Number(e.target.value))}>
-                  {SUNBURST_MODES.map((m) => (
-                    <option key={m.value} value={m.value}>
-                      {m.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            )}
           </div>
           <p className="comparison-blurb">
             One sample per pixel is noisy — these three panels compare that noise across

@@ -67,6 +67,58 @@ a {
   color: #ddd;
 }
 
+/* A small, always-visible settings window, independent of scroll position —
+   the click interaction it controls (bounce-path trace vs. direction-sample
+   sunburst) works the same in every section, so it doesn't belong pinned to
+   any one of them. Pinned top-right so it stays clear of the narrative
+   column, which lives on the left. */
+.click-mode-panel {
+  position: fixed;
+  inset-block-start: 3.75rem;
+  inset-inline-end: 1rem;
+  z-index: 2;
+  display: grid;
+  gap: 0.4rem;
+  max-width: 190px;
+  padding: 0.6rem 0.75rem;
+  border-radius: 0.6rem;
+  background: rgb(255 255 255 / 82%);
+  backdrop-filter: blur(10px) saturate(120%);
+  box-shadow: 0 0.4rem 1rem rgb(0 0 0 / 25%);
+  font-size: 0.8rem;
+}
+
+.click-mode-panel-title {
+  margin: 0;
+  font-weight: 600;
+  font-size: 0.8rem;
+}
+
+.click-mode-panel label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.click-mode-panel label.render-setting-checkbox {
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 0.4rem;
+}
+
+/* Below ~700px the topbar wraps onto three lines (see the matching .story
+   rule), so the panel needs the same generous top clearance and a tighter
+   footprint to avoid crowding a narrow screen. */
+@media (width <= 700px) {
+  .click-mode-panel {
+    inset-block-start: 8rem;
+    inset-inline-end: 0.6rem;
+    max-width: 150px;
+    padding: 0.5rem 0.6rem;
+    background: rgb(255 255 255 / 94%);
+  }
+}
+
 /* The scrolling narrative: a narrow column of cards that floats above the
    fixed full-viewport canvas as the visitor scrolls down the page, each
    section pinning the background render to whichever concept it's discussing
