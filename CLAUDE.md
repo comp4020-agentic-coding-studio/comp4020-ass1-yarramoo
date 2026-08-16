@@ -104,17 +104,30 @@ JSON change, resize) must clear the whole history, not just the current
 overlay — that's `clearTracedRays()`, called everywhere `tracedPathRef` used
 to be nulled directly.
 
-**Full-screen canvas, floating widget, fixed pixel budget.** `App.tsx` has no
-scrolling page — the canvas is a fixed full-viewport background layer, a slim
-topbar holds nav/heading/sample-count, and a collapsible `.control-widget`
-floats over the canvas holding every control (scene, materials, render
-settings, JSON, and the folded-in explainer/comparison). Since this renderer
-is single-threaded CPU Monte Carlo, `computeRenderSize` keeps the *internal*
-render resolution at roughly the old fixed 480×300 pixel count and only
-tracks the viewport's *aspect ratio* on resize (via `Scene::resize`, debounced
-~200ms) — this keeps the convergence rate constant regardless of window size;
-the CSS stretch to fill the screen is uniform, not distorting, since the
-aspect always matches.
+**Scrollytelling over one fixed canvas, fixed pixel budget.** The canvas is a
+fixed full-viewport background layer and a slim topbar holds nav/heading/
+sample-count, both unscrolled — but `.story` (`App.tsx`) is a normal-flow
+column of narrative `<section>`s the visitor scrolls past, each one loading a
+different preset via an `IntersectionObserver` keyed to the viewport's
+vertical centreline (`rootMargin: "-50% 0px -50% 0px", threshold: 0`, checking
+only `entry.isIntersecting` — robust to a section being taller than the
+viewport, which a naive `intersectionRatio` threshold isn't). The last
+section, `.control-widget` (`#playground`), holds every manual control
+(scene, materials, render settings, JSON, folded-in explainer/comparison) and
+is the one point the whole page's earlier per-concept presets funnel into —
+"now drive it yourself." Since the render sits *behind* readable text for the
+whole scroll, `.story`'s own grid box is `pointer-events: none` with
+`pointer-events: auto` restored only on the card children, so a tap in the
+gap between cards still reaches the canvas underneath instead of the empty
+grid area swallowing it. Below ~700px there's no spare width to keep text and
+canvas side by side, so the narrative falls back to a centred, near-opaque
+column — legibility over render-visibility once the two can't coexist. Since
+this renderer is single-threaded CPU Monte Carlo, `computeRenderSize` keeps
+the *internal* render resolution at roughly the old fixed 480×300 pixel count
+and only tracks the viewport's *aspect ratio* on resize (via `Scene::resize`,
+debounced ~200ms) — this keeps the convergence rate constant regardless of
+window size; the CSS stretch to fill the screen is uniform, not distorting,
+since the aspect always matches.
 
 **Single-threaded, deliberately.** Multithreaded wasm needs
 `SharedArrayBuffer`, which needs COOP/COEP response headers — GitHub Pages
