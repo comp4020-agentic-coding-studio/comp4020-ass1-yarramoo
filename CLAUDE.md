@@ -155,6 +155,20 @@ together.
   --- the page is wrong until the check is green, not until you decide it should
   be.
 - Commit when the checks pass. Never commit a red state.
+- Commit sensibly and incrementally *as you go*, not as one dump at the end of
+  a session. Once a logically-scoped piece of work is green (a module, a
+  wired-up feature, a UI pass), commit it with a message explaining why before
+  moving to the next piece — don't let unrelated work pile up uncommitted in
+  between. This isn't hypothetical: an entire feature arc (book 3's PDF-
+  sampling machinery — `onb.rs`, `pdf.rs`, the mixture-sampling wiring, the
+  preset scenes that depend on it, and the control-widget UI for all of it)
+  sat uncommitted across ~2400 lines and 19 files for the whole session it was
+  built in, and had to be reconstructed into three retroactive commits
+  afterwards by re-deriving which files belonged together and re-running the
+  checks against partial state. That reconstruction cost real effort and
+  still lost the true chronology — the commit history reads as three
+  checkpoints, not as the session that produced them. Commit as each piece
+  lands instead.
 
 ## The checks (your sensors)
 
