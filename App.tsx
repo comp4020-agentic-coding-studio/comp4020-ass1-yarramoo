@@ -357,6 +357,19 @@ export function App() {
   const snapshotCosineRef = useRef<HTMLCanvasElement | null>(null);
   const snapshotMixtureRef = useRef<HTMLCanvasElement | null>(null);
   const sceneRef = useRef<Scene | null>(null);
+  // Mirrors `sceneKind` state for the scroll-driven narrative effect below,
+  // which subscribes once via [ready] rather than re-subscribing on every
+  // scene change — same pattern as maxDepthRef. Also lets that effect skip a
+  // redundant load_preset call when the visitor scrolls past a section's
+  // threshold more than once without the scene actually changing.
+  const sceneKindRef = useRef(0);
+  // One ref per narrative section that "owns" a scene — scrolling one of
+  // these into view pins the shared background render to the scene that
+  // section is discussing (see the IntersectionObserver effect below).
+  const materialsSectionRef = useRef<HTMLElement | null>(null);
+  const dofSectionRef = useRef<HTMLElement | null>(null);
+  const dispersionSectionRef = useRef<HTMLElement | null>(null);
+  const lightSamplingSectionRef = useRef<HTMLElement | null>(null);
   // The last traced click's bounce path(s), or null when there's nothing to
   // draw. Lives in a ref (not state) because the render loop redraws it
   // every frame alongside the progressive render, not on its own React
@@ -603,6 +616,46 @@ export function App() {
     };
   }, []);
 
+  // The narrative's whole premise is "the render in the background matches
+  // whatever concept you're currently reading about" — this is what makes
+  // that true. IntersectionObserver (not scroll-position math) so it works
+  // the same scrolling up as scrolling down. Guarded against jsdom, which
+  // has no IntersectionObserver global — tests drive scene selection
+  // manually via the Playground picker instead, unaffected by this effect
+  // simply not running.
+  useEffect(() => {
+    if (!ready || typeof IntersectionObserver === "undefined") return;
+    const sections: [number, HTMLElement | null][] = [
+      [0, materialsSectionRef.current],
+      [4, dofSectionRef.current],
+      [3, dispersionSectionRef.current],
+      [1, lightSamplingSectionRef.current],
+    ];
+    const idsByElement = new Map(sections.filter(([, el]) => el).map(([id, el]) => [el as HTMLElement, id]));
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting || entry.intersectionRatio < 0.5) continue;
+          const id = idsByElement.get(entry.target as HTMLElement);
+          if (id === undefined || sceneKindRef.current === id) continue;
+          sceneKindRef.current = id;
+          setSceneKind(id);
+          setJsonError(null);
+          clearTracedRays();
+          sceneRef.current?.load_preset(id);
+          setDofAngle(PRESET_DEFAULT_DOF[id] ?? 0);
+          if (id === 0) setControls(HERO_SPHERES.map((s) => ({ ...s.initial })));
+        }
+      },
+      { threshold: [0.5] },
+    );
+    for (const [, el] of sections) {
+      if (el) observer.observe(el);
+    }
+    return () => observer.disconnect();
+  }, [ready]);
+
   // The Monte Carlo canvas lives inside the collapsible control-widget body,
   // which unmounts entirely when the widget is collapsed — so this effect
   // re-subscribes on [widgetOpen] rather than mounting once, picking up a
@@ -791,6 +844,7 @@ export function App() {
   };
 
   const selectScene = (id: number) => {
+    sceneKindRef.current = id;
     setSceneKind(id);
     setJsonError(null);
     clearTracedRays();
@@ -827,137 +881,389 @@ export function App() {
         aria-label="Ray-traced scene. Drag to orbit the camera, or click to trace a ray."
       />
       <SampleCountReadout sampleCount={sampleCount} />
-      <main className="control-widget">
-        <div className="control-widget-header">
-          <span className="control-widget-title">Controls</span>
-          <button
-            type="button"
-            aria-expanded={widgetOpen}
-            aria-controls="control-widget-body"
-            onClick={() => setWidgetOpen((v) => !v)}
-          >
-            {widgetOpen ? "Collapse" : "Expand"}
-          </button>
-        </div>
-        {widgetOpen && (
-          <div id="control-widget-body" className="control-widget-body">
-            <div className="controls" role="group" aria-label="Zoom">
-              <button type="button" onClick={() => zoom(-0.5)}>
-                Zoom in
-              </button>
-              <button type="button" onClick={() => zoom(0.5)}>
-                Zoom out
-              </button>
+      <div className="story">
+        <section className="story-hero">
+          <h1>One ray at a time</h1>
+          <p>
+            Everything on this page is the same single-threaded, CPU path tracer, rendering live
+            in your browser behind this text. Drag it to orbit, click it to trace exactly one
+            ray and watch what happened to it. Scroll down — each section below hands the render
+            a new concept to show off, building from "guess randomly and average" up to real
+            light sources and importance sampling. Nothing here is pre-rendered.
+          </p>
+        </section>
+
+        <section id="mc" className="mc-explainer">
+          <h2>Monte Carlo π estimator</h2>
+          <p>
+            Every render on this page is Monte Carlo integration in disguise — averaging random
+            samples to approximate an answer you can't (or don't want to) compute exactly.
+            Here's that same idea stripped down to its simplest form, no ray tracing involved
+            yet: scatter random points into a unit square, and the fraction landing inside the
+            inscribed quarter circle approximates the circle's area, so{" "}
+            <code>4 × inside / total</code> converges toward π.
+          </p>
+          <div className="mc-canvas-row">
+            <canvas
+              ref={mcCanvasRef}
+              width={MC_CANVAS_SIZE}
+              height={MC_CANVAS_SIZE}
+              className="mc-canvas"
+              role="img"
+              aria-label="Monte Carlo pi estimator: random points in a unit square, coloured by whether they fall inside the quarter circle."
+            />
+            <div className="mc-side">
+              <p className="mc-estimate" data-testid="mc-estimate">
+                {mcEstimate === null ? "π ≈ …" : `π ≈ ${mcEstimate.toFixed(4)}`}
+                <br />
+                <span className="mc-total">{mcTotal.toLocaleString()} points</span>
+              </p>
+              <canvas
+                ref={mcSparklineRef}
+                width={140}
+                height={48}
+                className="mc-sparkline"
+                role="img"
+                aria-label="History of the running pi estimate, with a dashed reference line at the true value of pi."
+              />
             </div>
-            <fieldset className="scene-picker">
-              <legend>Scene</legend>
-              <label>
-                Choose a scene
-                <select value={sceneKind} onChange={(e) => selectScene(Number(e.target.value))}>
-                  {PRESETS.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.label}
-                    </option>
-                  ))}
-                  <option value={CUSTOM_SCENE_ID}>Custom (JSON)</option>
-                </select>
-              </label>
-              {sceneKind === CUSTOM_SCENE_ID && (
-                <div className="json-scene">
+          </div>
+          <div className="mc-controls">
+            <label className="render-setting-checkbox">
+              <input type="checkbox" checked={mcRunning} onChange={(e) => updateMcRunning(e.target.checked)} />
+              Running
+            </label>
+            <label className="render-setting-checkbox">
+              <input type="checkbox" checked={mcJitter} onChange={(e) => updateMcJitter(e.target.checked)} />
+              Stratified sampling (jittered grid)
+            </label>
+            <button type="button" onClick={resetMonteCarlo}>
+              Reset
+            </button>
+          </div>
+          <p className="render-setting-blurb">
+            Off, points land anywhere in the square — some patches get clumped with several
+            points while others sit empty by chance, the way pure random pixel sampling does.
+            On, an {MC_GRID_SIZE}×{MC_GRID_SIZE} grid divides the square into cells and each new
+            point is placed randomly within the next cell in turn, cycling back to the first
+            cell once all of them have one — the same total randomness, but spread out instead
+            of clumped, which is why the estimate above settles down faster with it on.
+          </p>
+        </section>
+
+        <section id="materials" className="story-section" ref={materialsSectionRef}>
+          <h2>Trace a ray yourself</h2>
+          <p>
+            Drag to orbit the camera. Click without dragging to trace a single ray: each dot is
+            a bounce, the line is the path it took, and a gold glowing dot means it hit a light.
+          </p>
+          <p className="render-setting-blurb">
+            <strong>Known quirk:</strong> a bounce that reflects back past the camera has its
+            final line segment omitted — the dot's colour is still correct.
+          </p>
+          {sceneKind === 0 && (
+          <fieldset className="materials">
+            <legend>Materials</legend>
+            {HERO_SPHERES.map((sphere, i) => {
+              const state = controls[i];
+              const activeMaterial = MATERIAL_KINDS.find((k) => k.value === state.kind);
+              return (
+                <div className="material-control" key={sphere.index}>
                   <label>
-                    Scene JSON
-                    <textarea
-                      value={jsonText}
-                      onChange={(e) => setJsonText(e.target.value)}
-                      rows={10}
-                      spellCheck={false}
-                    />
+                    {sphere.label} material
+                    <select value={state.kind} onChange={(e) => updateMaterial(i, { kind: Number(e.target.value) })}>
+                      {MATERIAL_KINDS.map((k) => (
+                        <option key={k.value} value={k.value}>
+                          {k.label}
+                        </option>
+                      ))}
+                    </select>
                   </label>
-                  <div className="json-scene-actions">
-                    <button type="button" onClick={() => applyJson(jsonText)}>
-                      Apply scene
-                    </button>
-                    <button type="button" onClick={loadExampleJson}>
-                      Load example
-                    </button>
-                  </div>
-                  {jsonError && (
-                    <p className="json-error" role="alert" data-testid="json-scene-error">
-                      {jsonError}
+                  {activeMaterial && (
+                    <p className="material-blurb" data-testid={`material-blurb-${sphere.index}`}>
+                      {activeMaterial.blurb}
                     </p>
                   )}
+                  {state.kind !== 2 && (
+                    <label>
+                      Colour
+                      <input
+                        type="color"
+                        value={state.colour}
+                        onChange={(e) => updateMaterial(i, { colour: e.target.value })}
+                      />
+                    </label>
+                  )}
+                  {state.kind === 1 && (
+                    <label>
+                      Fuzz
+                      <input
+                        type="range"
+                        min={0}
+                        max={1}
+                        step={0.05}
+                        value={state.param}
+                        onChange={(e) => updateMaterial(i, { param: Number(e.target.value) })}
+                      />
+                    </label>
+                  )}
+                  {state.kind === 2 && (
+                    <label>
+                      Refraction index
+                      <input
+                        type="range"
+                        min={1}
+                        max={2.5}
+                        step={0.05}
+                        value={state.param}
+                        onChange={(e) => updateMaterial(i, { param: Number(e.target.value) })}
+                      />
+                    </label>
+                  )}
                 </div>
-              )}
-            </fieldset>
-            {sceneKind === 0 && (
-              <fieldset className="materials">
-                <legend>Materials</legend>
-                {HERO_SPHERES.map((sphere, i) => {
-                  const state = controls[i];
-                  const activeMaterial = MATERIAL_KINDS.find((k) => k.value === state.kind);
-                  return (
-                    <div className="material-control" key={sphere.index}>
-                      <label>
-                        {sphere.label} material
-                        <select
-                          value={state.kind}
-                          onChange={(e) => updateMaterial(i, { kind: Number(e.target.value) })}
-                        >
-                          {MATERIAL_KINDS.map((k) => (
-                            <option key={k.value} value={k.value}>
-                              {k.label}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                      {activeMaterial && (
-                        <p className="material-blurb" data-testid={`material-blurb-${sphere.index}`}>
-                          {activeMaterial.blurb}
-                        </p>
-                      )}
-                      {state.kind !== 2 && (
-                        <label>
-                          Colour
-                          <input
-                            type="color"
-                            value={state.colour}
-                            onChange={(e) => updateMaterial(i, { colour: e.target.value })}
-                          />
-                        </label>
-                      )}
-                      {state.kind === 1 && (
-                        <label>
-                          Fuzz
-                          <input
-                            type="range"
-                            min={0}
-                            max={1}
-                            step={0.05}
-                            value={state.param}
-                            onChange={(e) => updateMaterial(i, { param: Number(e.target.value) })}
-                          />
-                        </label>
-                      )}
-                      {state.kind === 2 && (
-                        <label>
-                          Refraction index
-                          <input
-                            type="range"
-                            min={1}
-                            max={2.5}
-                            step={0.05}
-                            value={state.param}
-                            onChange={(e) => updateMaterial(i, { param: Number(e.target.value) })}
-                          />
-                        </label>
-                      )}
-                    </div>
-                  );
-                })}
-              </fieldset>
+              );
+            })}
+          </fieldset>
+          )}
+        </section>
+
+        <section id="dof" className="story-section" ref={dofSectionRef}>
+          <h2>A camera is a lens</h2>
+          <p>
+            Every ray so far has come from a single pinhole, so everything is in perfect focus.
+            Real lenses aren't pinholes — they have an aperture, so each ray instead samples a
+            point across a small lens disc. Widen it and anything away from the focus distance
+            blurs, while whatever sits at the focus distance stays sharp: this row of spheres
+            receding into the distance is built to show that off.
+          </p>
+          <div className="render-setting">
+            <label>
+              Aperture (depth of field): {dofAngle.toFixed(1)}°
+              <input
+                type="range"
+                min={0}
+                max={3}
+                step={0.1}
+                value={dofAngle}
+                onChange={(e) => updateDof(Number(e.target.value))}
+              />
+            </label>
+            <p className="render-setting-blurb">
+              Above 0°, each ray samples a point on a lens instead of a single pinhole, so
+              anything away from the focus distance blurs while whatever sits at it stays sharp.
+            </p>
+          </div>
+        </section>
+
+        <section id="dispersion" className="story-section" ref={dispersionSectionRef}>
+          <h2>Colour depends on wavelength</h2>
+          <p>
+            Refraction isn't one number — glass bends red, green and blue light by slightly
+            different amounts. Click through this prism and each channel is traced and coloured
+            separately (red, green, blue), so the split is visible ray by ray instead of only as
+            a blur in the final image.
+          </p>
+        </section>
+
+        <section id="light-sampling" className="story-section" ref={lightSamplingSectionRef}>
+          <h2>Aiming at what actually matters</h2>
+          <p>
+            So far every bounce has picked its next direction more or less randomly and hoped it
+            found a light. This Cornell box has a real light source, small and easy to miss — so
+            instead of hoping, a mixture strategy also aims some rays straight at it (next-event
+            estimation), mixed with proper cosine-weighted sampling. All three strategies below
+            converge to the same final image; the difference is how noisy a single sample looks.
+          </p>
+          <div className="render-setting">
+            <label>
+              Samples per frame: {samplesPerPass}
+              <input
+                type="range"
+                min={1}
+                max={8}
+                step={1}
+                value={samplesPerPass}
+                onChange={(e) => updateSamplesPerPass(Number(e.target.value))}
+              />
+            </label>
+            <p className="render-setting-blurb">
+              How many rays each pixel fires before the canvas updates again. This light source
+              is small, so single samples are very noisy — cranking this up visibly clears the
+              grain.
+            </p>
+          </div>
+          <div className="render-setting">
+            <label className="render-setting-checkbox">
+              <input
+                type="checkbox"
+                checked={accumulateRays}
+                onChange={(e) => updateAccumulateRays(e.target.checked)}
+              />
+              Accumulate every ray traced through a pixel
+            </label>
+            <p className="render-setting-blurb">
+              On, repeated clicks on the same wall keep every past bounce instead of replacing
+              it — one click becomes a growing scatter plot of a random process, filling in a
+              cosine-shaped fan.
+            </p>
+          </div>
+          <div className="render-setting">
+            <label>
+              PDF sampling strategy
+              <select value={samplingStrategy} onChange={(e) => updateSamplingStrategy(Number(e.target.value))}>
+                {SAMPLING_STRATEGIES.map((s) => (
+                  <option key={s.value} value={s.value}>
+                    {s.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <p className="render-setting-blurb">
+              Naive (book 1's rough approximation), cosine (proper importance sampling for a
+              matte surface's brightness), or mixture, which also aims some rays straight at the
+              light. Under mixture, bounce segments below are coloured by which PDF produced them
+              (teal = cosine, gold = light-aimed).
+            </p>
+          </div>
+          <div className="render-setting">
+            <label className="render-setting-checkbox">
+              <input
+                type="checkbox"
+                checked={clickMode === "sunburst"}
+                onChange={(e) => updateClickMode(e.target.checked ? "sunburst" : "trace")}
+              />
+              Click shows a direction sample "sunburst" instead of a full bounce path
+            </label>
+            <p className="render-setting-blurb">
+              Fires {SUNBURST_SAMPLE_COUNT} single-bounce samples from one clicked point and fans
+              them out, showing a strategy's shape directly in one click. Cosine clusters
+              visibly toward the surface normal; aimed-at-the-light snaps every sample straight
+              at the ceiling.
+            </p>
+            {clickMode === "sunburst" && (
+              <label>
+                Sunburst distribution
+                <select value={sunburstMode} onChange={(e) => updateSunburstMode(Number(e.target.value))}>
+                  {SUNBURST_MODES.map((m) => (
+                    <option key={m.value} value={m.value}>
+                      {m.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
             )}
-            <fieldset className="render-settings">
-              <legend>Render settings</legend>
+          </div>
+          <p className="comparison-blurb">
+            One sample per pixel is noisy — these three panels compare that noise across
+            strategies, against the converged render's {sampleCount} samples per pixel.
+          </p>
+          <button type="button" onClick={showOneSample}>
+            Refresh 1-sample comparison
+          </button>
+          <div className="snapshot-grid">
+            <div className="snapshot-panel">
+              <p className="snapshot-label">Naive</p>
+              <canvas
+                ref={snapshotNaiveRef}
+                width={dims.width}
+                height={dims.height}
+                className="snapshot-canvas"
+                role="img"
+                aria-label="A single noisy sample per pixel under naive Lambertian sampling, for comparison against the converged render above."
+              />
+            </div>
+            <div className="snapshot-panel">
+              <p className="snapshot-label">Cosine</p>
+              <canvas
+                ref={snapshotCosineRef}
+                width={dims.width}
+                height={dims.height}
+                className="snapshot-canvas"
+                role="img"
+                aria-label="A single noisy sample per pixel under cosine-weighted importance sampling, for comparison against the converged render above."
+              />
+            </div>
+            <div className="snapshot-panel">
+              <p className="snapshot-label">Mixture</p>
+              <canvas
+                ref={snapshotMixtureRef}
+                width={dims.width}
+                height={dims.height}
+                className="snapshot-canvas"
+                role="img"
+                aria-label="A single noisy sample per pixel under mixture direct-light sampling, for comparison against the converged render above."
+              />
+            </div>
+          </div>
+        </section>
+
+        <main id="playground" className="control-widget">
+          <div className="control-widget-header">
+            <span className="control-widget-title">Playground — put it all together</span>
+            <button
+              type="button"
+              aria-expanded={widgetOpen}
+              aria-controls="control-widget-body"
+              onClick={() => setWidgetOpen((v) => !v)}
+            >
+              {widgetOpen ? "Collapse" : "Expand"}
+            </button>
+          </div>
+          {widgetOpen && (
+            <div id="control-widget-body" className="control-widget-body">
+              <p>
+                Pick any scene, or write your own, and combine every setting above freely — the
+                render above is shared across the whole page, so whatever you set here also
+                applies if you scroll back up.
+              </p>
+              <div className="controls" role="group" aria-label="Zoom">
+                <button type="button" onClick={() => zoom(-0.5)}>
+                  Zoom in
+                </button>
+                <button type="button" onClick={() => zoom(0.5)}>
+                  Zoom out
+                </button>
+              </div>
+              <fieldset className="scene-picker">
+                <legend>Scene</legend>
+                <label>
+                  Choose a scene
+                  <select value={sceneKind} onChange={(e) => selectScene(Number(e.target.value))}>
+                    {PRESETS.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.label}
+                      </option>
+                    ))}
+                    <option value={CUSTOM_SCENE_ID}>Custom (JSON)</option>
+                  </select>
+                </label>
+                {sceneKind === CUSTOM_SCENE_ID && (
+                  <div className="json-scene">
+                    <label>
+                      Scene JSON
+                      <textarea
+                        value={jsonText}
+                        onChange={(e) => setJsonText(e.target.value)}
+                        rows={10}
+                        spellCheck={false}
+                      />
+                    </label>
+                    <div className="json-scene-actions">
+                      <button type="button" onClick={() => applyJson(jsonText)}>
+                        Apply scene
+                      </button>
+                      <button type="button" onClick={loadExampleJson}>
+                        Load example
+                      </button>
+                    </div>
+                    {jsonError && (
+                      <p className="json-error" role="alert" data-testid="json-scene-error">
+                        {jsonError}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </fieldset>
               <div className="render-setting">
                 <label>
                   Max bounce depth: {maxDepth}
@@ -971,263 +1277,16 @@ export function App() {
                   />
                 </label>
                 <p className="render-setting-blurb">
-                  A path that hasn't hit a light or escaped after this many bounces gets cut
-                  off and counted as black — cheap, but it throws away indirect light. Barely
-                  matters on a lone matte sphere; drop it low on <strong>Classic spheres</strong>{" "}
-                  and the metal and glass spheres darken as their reflections and refractions
-                  get truncated. It matters most in the <strong>Cornell box</strong> and{" "}
-                  <strong>Foggy room</strong>, where every wall and the fog itself are lit only
-                  by bounced light — cut depth too short there and the room goes dark except
-                  what's hit directly.
+                  A path that hasn't hit a light or escaped after this many bounces gets cut off
+                  and counted as black — cheap, but it throws away indirect light. It matters
+                  most in the <strong>Cornell box</strong> and <strong>Foggy room</strong>, where
+                  every wall and the fog itself are lit only by bounced light.
                 </p>
               </div>
-              <div className="render-setting">
-                <label>
-                  Samples per frame: {samplesPerPass}
-                  <input
-                    type="range"
-                    min={1}
-                    max={8}
-                    step={1}
-                    value={samplesPerPass}
-                    onChange={(e) => updateSamplesPerPass(Number(e.target.value))}
-                  />
-                </label>
-                <p className="render-setting-blurb">
-                  How many rays each pixel fires before the canvas updates again — more settles
-                  the image faster, at the cost of a less responsive canvas while orbiting. The
-                  payoff is most visible on <strong>Cornell box</strong> and{" "}
-                  <strong>Foggy room</strong>: their light source is small, so single samples are
-                  very noisy, and cranking this up visibly clears the grain.
-                </p>
-              </div>
-              <div className="render-setting">
-                <label>
-                  Aperture (depth of field): {dofAngle.toFixed(1)}°
-                  <input
-                    type="range"
-                    min={0}
-                    max={3}
-                    step={0.1}
-                    value={dofAngle}
-                    onChange={(e) => updateDof(Number(e.target.value))}
-                  />
-                </label>
-                <p className="render-setting-blurb">
-                  Above 0°, each ray samples a point on a lens instead of a single pinhole, so
-                  anything away from the focus distance blurs while whatever sits at it stays
-                  sharp. The <strong>Depth of field</strong> preset is built to show this off — a
-                  row of spheres receding into the distance, sharp in the middle and blurring
-                  outward. Elsewhere the slider still blurs everything, but with no receding
-                  depth to blur against it just looks generally soft.
-                </p>
-              </div>
-              <div className="render-setting">
-                <label className="render-setting-checkbox">
-                  <input
-                    type="checkbox"
-                    checked={accumulateRays}
-                    onChange={(e) => updateAccumulateRays(e.target.checked)}
-                  />
-                  Accumulate every ray traced through a pixel
-                </label>
-                <p className="render-setting-blurb">
-                  On, repeated clicks on the same pixel keep every past bounce instead of
-                  replacing it — one click becomes a growing scatter plot of a random process.
-                  Click a matte surface repeatedly — the ground in <strong>Classic spheres</strong>,
-                  a wall in <strong>Cornell box</strong> — and watch the bounces fill in a
-                  cosine-shaped fan. It shows nothing new on a specular surface (Metal, glass, the
-                  ball in <strong>Dispersive prism</strong>): those bounces are deterministic, so
-                  every click just retraces the same line.
-                </p>
-              </div>
-              <div className="render-setting">
-                <label>
-                  PDF sampling strategy
-                  <select
-                    value={samplingStrategy}
-                    onChange={(e) => updateSamplingStrategy(Number(e.target.value))}
-                  >
-                    {SAMPLING_STRATEGIES.map((s) => (
-                      <option key={s.value} value={s.value}>
-                        {s.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <p className="render-setting-blurb">
-                  How a matte bounce picks its next direction: naive (book 1's rough
-                  approximation), cosine (proper importance sampling for a matte surface's
-                  brightness), or mixture, which also aims some rays straight at a known light
-                  (next-event estimation). All three converge to the same image — the difference
-                  is how noisy 1 sample per pixel looks, visible in the panels below. Mixture only
-                  differs from cosine in <strong>Cornell box</strong> and <strong>Foggy room</strong>{" "}
-                  (or a custom scene with a light quad) — the only scenes with a light to aim at;
-                  everywhere else it quietly behaves exactly like cosine.
-                </p>
-              </div>
-              <div className="render-setting">
-                <label className="render-setting-checkbox">
-                  <input
-                    type="checkbox"
-                    checked={clickMode === "sunburst"}
-                    onChange={(e) => updateClickMode(e.target.checked ? "sunburst" : "trace")}
-                  />
-                  Click shows a direction sample "sunburst" instead of a full bounce path
-                </label>
-                <p className="render-setting-blurb">
-                  Fires {SUNBURST_SAMPLE_COUNT} single-bounce samples from one clicked point and
-                  fans them out, showing a strategy's shape directly in one click instead of
-                  building it up over many.
-                </p>
-                {clickMode === "sunburst" && (
-                  <>
-                    <label>
-                      Sunburst distribution
-                      <select
-                        value={sunburstMode}
-                        onChange={(e) => updateSunburstMode(Number(e.target.value))}
-                      >
-                        {SUNBURST_MODES.map((m) => (
-                          <option key={m.value} value={m.value}>
-                            {m.label}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <p className="render-setting-blurb">
-                      Cosine clusters visibly toward the surface normal; uniform hemisphere
-                      spreads evenly across it — compare them on any matte surface. Aimed at the
-                      light only differs on <strong>Cornell box</strong> and{" "}
-                      <strong>Foggy room</strong>; pick it elsewhere and it silently falls back
-                      to cosine, since there's no light to aim at.
-                    </p>
-                  </>
-                )}
-              </div>
-            </fieldset>
-            <section className="mc-explainer">
-              <h2>Monte Carlo π estimator</h2>
-              <p>
-                Every render above is Monte Carlo integration in disguise — averaging random
-                samples to approximate an answer you can't (or don't want to) compute exactly.
-                Here's that same idea stripped down to its simplest form: scatter random points
-                into a unit square, and the fraction landing inside the inscribed quarter circle
-                approximates the circle's area, so <code>4 × inside / total</code> converges
-                toward π.
-              </p>
-              <div className="mc-canvas-row">
-                <canvas
-                  ref={mcCanvasRef}
-                  width={MC_CANVAS_SIZE}
-                  height={MC_CANVAS_SIZE}
-                  className="mc-canvas"
-                  role="img"
-                  aria-label="Monte Carlo pi estimator: random points in a unit square, coloured by whether they fall inside the quarter circle."
-                />
-                <div className="mc-side">
-                  <p className="mc-estimate" data-testid="mc-estimate">
-                    {mcEstimate === null ? "π ≈ …" : `π ≈ ${mcEstimate.toFixed(4)}`}
-                    <br />
-                    <span className="mc-total">{mcTotal.toLocaleString()} points</span>
-                  </p>
-                  <canvas
-                    ref={mcSparklineRef}
-                    width={140}
-                    height={48}
-                    className="mc-sparkline"
-                    role="img"
-                    aria-label="History of the running pi estimate, with a dashed reference line at the true value of pi."
-                  />
-                </div>
-              </div>
-              <div className="mc-controls">
-                <label className="render-setting-checkbox">
-                  <input type="checkbox" checked={mcRunning} onChange={(e) => updateMcRunning(e.target.checked)} />
-                  Running
-                </label>
-                <label className="render-setting-checkbox">
-                  <input type="checkbox" checked={mcJitter} onChange={(e) => updateMcJitter(e.target.checked)} />
-                  Stratified sampling (jittered grid)
-                </label>
-                <button type="button" onClick={resetMonteCarlo}>
-                  Reset
-                </button>
-              </div>
-              <p className="render-setting-blurb">
-                Off, points land anywhere in the square — some patches get clumped with several
-                points while others sit empty by chance, the way pure random pixel sampling does.
-                On, an {MC_GRID_SIZE}×{MC_GRID_SIZE} grid divides the square into cells and each new
-                point is placed randomly within the next cell in turn, cycling back to the first
-                cell once all of them have one — the same total randomness, but spread out instead
-                of clumped, which is why the estimate above settles down faster with it on.
-              </p>
-            </section>
-            <section className="trace-explainer">
-              <h2>Trace a ray yourself</h2>
-              <p>
-                Drag to orbit the camera. Click without dragging to trace a single ray: each
-                dot is a bounce, the line is the path it took, and a gold glowing dot means it
-                hit a light. Try the other scenes for a dispersive colour split, jittery fog
-                bounces, or (with aperture above 0°) a defocus spread.
-              </p>
-              <p className="render-setting-blurb">
-                Under the mixture strategy, segments are coloured by which PDF produced them
-                (teal = cosine, gold = light-aimed). In sunburst mode, the fan is coloured the
-                same way, plus purple for uniform-hemisphere.
-              </p>
-              <p className="render-setting-blurb">
-                <strong>Known quirk:</strong> a bounce that reflects back past the camera has
-                its final line segment omitted — the dot's colour is still correct.
-              </p>
-              <p className="comparison-blurb">
-                One sample per pixel is noisy — these three panels compare that noise across
-                strategies, against the converged render's {sampleCount} samples per pixel. The
-                gap is biggest on Cornell box and Foggy room, where mixture can aim straight at
-                the light; on scenes with no light to aim at, all three look nearly identical.
-              </p>
-              <button type="button" onClick={showOneSample}>
-                Refresh 1-sample comparison
-              </button>
-              <div className="snapshot-grid">
-                <div className="snapshot-panel">
-                  <p className="snapshot-label">Naive</p>
-                  <canvas
-                    ref={snapshotNaiveRef}
-                    width={dims.width}
-                    height={dims.height}
-                    className="snapshot-canvas"
-                    role="img"
-                    aria-label="A single noisy sample per pixel under naive Lambertian sampling, for comparison against the converged render above."
-                  />
-                </div>
-                <div className="snapshot-panel">
-                  <p className="snapshot-label">Cosine</p>
-                  <canvas
-                    ref={snapshotCosineRef}
-                    width={dims.width}
-                    height={dims.height}
-                    className="snapshot-canvas"
-                    role="img"
-                    aria-label="A single noisy sample per pixel under cosine-weighted importance sampling, for comparison against the converged render above."
-                  />
-                </div>
-                <div className="snapshot-panel">
-                  <p className="snapshot-label">Mixture</p>
-                  <canvas
-                    ref={snapshotMixtureRef}
-                    width={dims.width}
-                    height={dims.height}
-                    className="snapshot-canvas"
-                    role="img"
-                    aria-label="A single noisy sample per pixel under mixture direct-light sampling, for comparison against the converged render above."
-                  />
-                </div>
-              </div>
-            </section>
-          </div>
-        )}
-      </main>
+            </div>
+          )}
+        </main>
+      </div>
     </>
   );
 }

@@ -1,9 +1,8 @@
 html,
 body,
 #root {
-  height: 100%;
+  min-height: 100%;
   margin: 0;
-  overflow: hidden;
 }
 
 body {
@@ -51,6 +50,9 @@ a {
 
 .app-topbar nav a {
   color: #cfe0ff;
+  margin-inline-end: 0.75rem;
+  font-size: 0.85rem;
+  white-space: nowrap;
 }
 
 .app-topbar h1 {
@@ -65,13 +67,44 @@ a {
   color: #ddd;
 }
 
+/* The scrolling narrative: a centred column of cards that floats above the
+   fixed full-viewport canvas as the visitor scrolls down the page, each
+   section pinning the background render to whichever concept it's discussing
+   (see the IntersectionObserver in App.tsx). */
+.story {
+  position: relative;
+  z-index: 1;
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 5.5rem 1rem 4rem;
+  display: grid;
+  gap: 2.5rem;
+}
+
+.story-hero,
+.story-section {
+  padding: 1.25rem 1.5rem;
+  border-radius: 0.75rem;
+  background: rgb(255 255 255 / 96%);
+  box-shadow: 0 0.5rem 1.5rem rgb(0 0 0 / 25%);
+}
+
+.story-hero h1 {
+  margin-top: 0;
+  font-size: 1.5rem;
+}
+
+.story-section h2 {
+  margin-top: 0;
+  font-size: 1.15rem;
+}
+
+.story-section p {
+  font-size: 0.9rem;
+}
+
 .control-widget {
-  position: fixed;
-  inset-block-start: 3.25rem;
-  inset-inline-end: 1rem;
-  z-index: 2;
-  width: clamp(260px, 90vw, 340px);
-  max-height: calc(100dvh - 4.25rem);
+  width: 100%;
   display: flex;
   flex-direction: column;
   border-radius: 0.75rem;
@@ -94,20 +127,9 @@ a {
 }
 
 .control-widget-body {
-  overflow-y: auto;
   padding: 0.75rem;
   display: grid;
   gap: 0.75rem;
-}
-
-@media (width <= 480px) {
-  .control-widget {
-    inset-block: auto 0;
-    inset-inline: 0;
-    width: 100%;
-    max-height: 70vh;
-    border-radius: 1rem 1rem 0 0;
-  }
 }
 
 .controls {
