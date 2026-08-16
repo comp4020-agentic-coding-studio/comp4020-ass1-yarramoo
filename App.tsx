@@ -1302,6 +1302,17 @@ export function App() {
             </div>
           )}
         </main>
+
+        <footer className="dev-note">
+          <p>
+            Dev note: this ray tracer is written in Rust, compiled to WebAssembly, and built by
+            working through the online{" "}
+            <a href="https://raytracing.github.io/" target="_blank" rel="noopener noreferrer">
+              Ray Tracing in One Weekend
+            </a>{" "}
+            series.
+          </p>
+        </footer>
       </div>
     </>
   );

@@ -15,6 +15,12 @@ a {
   color: #6af;
 }
 
+/* The dev-note footer sits on a near-white card background, where the
+   site-wide light blue link colour above doesn't have enough contrast. */
+.dev-note a {
+  color: #2a5db0;
+}
+
 /* The render fills the whole viewport as a fixed background layer; the
    topbar and control widget float above it. */
 .raytracer-canvas {
@@ -148,12 +154,23 @@ a {
 
 .story-hero,
 .story-section,
-.mc-explainer {
+.mc-explainer,
+.dev-note {
   padding: 1.25rem 1.5rem;
   border-radius: 0.75rem;
   background: rgb(255 255 255 / 78%);
   backdrop-filter: blur(10px) saturate(120%);
   box-shadow: 0 0.5rem 1.5rem rgb(0 0 0 / 25%);
+}
+
+.dev-note {
+  padding: 0.85rem 1.5rem;
+  font-size: 0.8rem;
+  color: #555;
+}
+
+.dev-note p {
+  margin: 0;
 }
 
 /* Below ~700px there's no spare width to give the render — fall back to a
@@ -170,7 +187,8 @@ a {
 
   .story-hero,
   .story-section,
-  .mc-explainer {
+  .mc-explainer,
+  .dev-note {
     background: rgb(255 255 255 / 94%);
   }
 
