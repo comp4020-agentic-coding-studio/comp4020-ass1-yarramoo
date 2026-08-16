@@ -46,10 +46,75 @@ canvas. Two Rust crates in a Cargo workspace at the repo root:
 - `raytracer-wasm/` — a thin `wasm-bindgen` binding crate exposing a `Scene`
   class: `render_pass(n)` traces `n` more samples per pixel into a running
   accumulator, `pixels()` returns gamma-corrected RGBA bytes, and
-  `orbit_camera`/`zoom`/`set_sphere_material` mutate state and reset the
-  accumulator so refinement restarts. All wasm/JS-facing dependencies
-  (`wasm-bindgen`, `getrandom`'s `wasm_js` backend, `console_error_panic_hook`)
-  live here, not in `raytracer`.
+  `orbit_camera`/`zoom`/`set_sphere_material`/`set_max_depth`/`set_defocus`/
+  `load_preset`/`load_json`/`resize` mutate state and reset the accumulator so
+  refinement restarts. All wasm/JS-facing dependencies (`wasm-bindgen`,
+  `getrandom`'s `wasm_js` backend, `console_error_panic_hook`, `serde`/
+  `serde_json` for custom-scene JSON) live here, not in `raytracer`.
+
+**One mechanic, deepened rather than duplicated.** The whole interaction is
+"click a pixel, see what happened to its ray" — `trace_pixel(i, j,
+max_depth)` returns every bounce path for that click as one flat buffer,
+`[numPaths, terminationKind, channel, len, x0,y0, ..., s0,s1,...]` per path
+(`terminationKind`: escaped/absorbed/emitted; `channel`: -1 neutral or 0/1/2
+for a dispersive-glass split; the trailing `s0,s1,...` tags each vertex with
+which PDF produced the bounce into it: -1 not-PDF-sampled/specular, 0
+cosine-weighted, 1 aimed at a light). Everything added after the classic
+3-sphere scene — `load_preset`'s four extra scenes (Cornell box, foggy room,
+dispersive prism, depth of field), `load_json`'s custom-scene textarea, and
+`set_defocus`'s lens-bundle sampling — is more things to point that one
+mechanic at, not a second feature. `raytracer-wasm/src/presets.rs` and
+`scene_json.rs` both build a `SceneSetup` (world + camera framing) that
+`Scene::apply_setup` swaps in, so orbit/zoom/reset behave identically
+regardless of which scene is loaded.
+
+**Book 3's PDF machinery ("Ray Tracing: The Rest of Your Life"), same
+mechanic pointed at a new question.** `raytracer/src/onb.rs` and `pdf.rs`
+add an orthonormal-basis type and a `Pdf` trait (`CosinePdf`,
+`UniformHemispherePdf`, `HittablePdf` for next-event estimation against a
+scene's lights, `MixturePdf` combining the two). `Scene::set_sampling_strategy(mode)`
+(0 naive/book-1, 1 cosine-importance, 2 mixture/NEE) switches which PDF
+`Camera::ray_colour` and `trace_pixel` sample from for non-specular
+materials — mode 0 reproduces the original book-1 approximation exactly, so
+every scene's converged image is unaffected by which mode is selected, only
+its noise at a given sample count. Two more read-only wasm entry points ride
+alongside `trace_pixel`: `sample_directions(i, j, mode, n)` fires `n`
+single-bounce sample directions from one clicked point (a "sunburst" —
+separate from `trace_pixel` since it has no recursion/termination
+bookkeeping), and `render_snapshot_with_strategy(mode, samples)` renders a
+stateless snapshot under an explicit strategy without touching
+`self.sampling_strategy` or the live accumulator (unlike
+`set_sampling_strategy`, which resets accumulation as a side effect) — this
+is what lets the frontend's naive/cosine/mixture 3-panel comparison grid
+capture all three at once without disturbing the progressive render in
+progress. `App.tsx` colour-codes bounce-path segments by PDF source when the
+strategy is mixture, and has a click-mode toggle switching a click between
+tracing a full path and firing a sunburst.
+
+**Accumulate mode is client-side, not another wasm call.** `trace_pixel`
+itself is unchanged and still ephemeral — `App.tsx` is what keeps state now:
+every returned path is appended into `rayHistoryRef`, a `Map<pixelKey,
+TracedPathSegment[]>` capped at `MAX_RAYS_PER_PIXEL` per key. The "accumulate"
+toggle only changes what gets *drawn* — the newest click's paths, or the
+pixel's whole recorded history — so clicking the same pixel repeatedly with
+it on visibly builds up the same set of independent samples the converged
+render's colour for that pixel is actually the average of. Anything that
+invalidates previously traced geometry (camera orbit, zoom, material/scene/
+JSON change, resize) must clear the whole history, not just the current
+overlay — that's `clearTracedRays()`, called everywhere `tracedPathRef` used
+to be nulled directly.
+
+**Full-screen canvas, floating widget, fixed pixel budget.** `App.tsx` has no
+scrolling page — the canvas is a fixed full-viewport background layer, a slim
+topbar holds nav/heading/sample-count, and a collapsible `.control-widget`
+floats over the canvas holding every control (scene, materials, render
+settings, JSON, and the folded-in explainer/comparison). Since this renderer
+is single-threaded CPU Monte Carlo, `computeRenderSize` keeps the *internal*
+render resolution at roughly the old fixed 480×300 pixel count and only
+tracks the viewport's *aspect ratio* on resize (via `Scene::resize`, debounced
+~200ms) — this keeps the convergence rate constant regardless of window size;
+the CSS stretch to fill the screen is uniform, not distorting, since the
+aspect always matches.
 
 **Single-threaded, deliberately.** Multithreaded wasm needs
 `SharedArrayBuffer`, which needs COOP/COEP response headers — GitHub Pages

@@ -1,45 +1,138 @@
-body {
+html,
+body,
+#root {
+  height: 100%;
   margin: 0;
-  padding: 2rem;
+  overflow: hidden;
+}
+
+body {
   font-family: system-ui, sans-serif;
   line-height: 1.6;
   color: #1a1a1a;
 }
 
-main {
-  max-width: 40rem;
-  margin: 0 auto;
-}
-
 a {
-  color: #0b5fff;
+  color: #6af;
 }
 
+/* The render fills the whole viewport as a fixed background layer; the
+   topbar and control widget float above it. */
 .raytracer-canvas {
+  position: fixed;
+  inset: 0;
   display: block;
-  width: 100%;
-  height: auto;
-  max-width: 30rem;
-  border-radius: 0.5rem;
-  background: #111;
+  width: 100vw;
+  height: 100dvh;
   touch-action: none;
   cursor: grab;
+  background: #111;
+  z-index: 0;
 }
 
 .raytracer-canvas:active {
   cursor: grabbing;
 }
 
+.app-topbar {
+  position: fixed;
+  inset-block-start: 0;
+  inset-inline: 0;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 1rem;
+  padding: 0.5rem 1rem;
+  background: rgb(0 0 0 / 55%);
+  color: #fff;
+  backdrop-filter: blur(4px);
+}
+
+.app-topbar nav a {
+  color: #cfe0ff;
+}
+
+.app-topbar h1 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.app-topbar p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #ddd;
+}
+
+.control-widget {
+  position: fixed;
+  inset-block-start: 3.25rem;
+  inset-inline-end: 1rem;
+  z-index: 2;
+  width: clamp(260px, 90vw, 340px);
+  max-height: calc(100dvh - 4.25rem);
+  display: flex;
+  flex-direction: column;
+  border-radius: 0.75rem;
+  background: rgb(255 255 255 / 96%);
+  box-shadow: 0 0.5rem 1.5rem rgb(0 0 0 / 25%);
+  overflow: hidden;
+}
+
+.control-widget-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.6rem 0.85rem;
+  border-bottom: 1px solid #e2e2e2;
+}
+
+.control-widget-title {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.control-widget-body {
+  overflow-y: auto;
+  padding: 0.75rem;
+  display: grid;
+  gap: 0.75rem;
+}
+
+@media (width <= 480px) {
+  .control-widget {
+    inset-block: auto 0;
+    inset-inline: 0;
+    width: 100%;
+    max-height: 70vh;
+    border-radius: 1rem 1rem 0 0;
+  }
+}
+
 .controls {
   display: flex;
   gap: 0.5rem;
-  margin: 0.75rem 0;
+}
+
+.trace-explainer {
+  padding: 1rem;
+  border: 1px solid #ddd;
+  border-radius: 0.5rem;
+}
+
+.trace-explainer h2 {
+  margin-top: 0;
+  font-size: 1.1rem;
+}
+
+.trace-explainer p {
+  font-size: 0.85rem;
 }
 
 .render-settings {
   display: grid;
   gap: 1rem;
-  margin-top: 1rem;
   padding: 1rem;
   border: 1px solid #ddd;
   border-radius: 0.5rem;
@@ -52,19 +145,16 @@ a {
   font-size: 0.9rem;
 }
 
+.render-setting label.render-setting-checkbox {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 .render-setting-blurb {
   margin: 0.5rem 0 0;
   font-size: 0.85rem;
   color: #555;
-}
-
-.comparison {
-  display: grid;
-  gap: 0.75rem;
-  margin-top: 1rem;
-  padding: 1rem;
-  border: 1px solid #ddd;
-  border-radius: 0.5rem;
 }
 
 .comparison-blurb {
@@ -74,16 +164,161 @@ a {
 }
 
 .snapshot-canvas {
+  display: block;
+  width: 100%;
+  max-width: 220px;
+  height: auto;
+  margin-top: 0.5rem;
+  border-radius: 0.4rem;
+  background: #111;
   cursor: default;
+}
+
+/* Stacked, not side-by-side: the control widget is only 260-340px wide, too
+   narrow to fit three legible panels in a row without squashing them. */
+.snapshot-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.snapshot-label {
+  margin: 0.5rem 0 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #555;
+}
+
+.mc-explainer {
+  padding: 1rem;
+  border: 1px solid #ddd;
+  border-radius: 0.5rem;
+}
+
+.mc-explainer h2 {
+  margin-top: 0;
+  font-size: 1.1rem;
+}
+
+.mc-explainer p {
+  font-size: 0.85rem;
+}
+
+.mc-explainer code {
+  font-family: ui-monospace, monospace;
+  font-size: 0.8rem;
+}
+
+.mc-canvas-row {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  margin: 0.5rem 0;
+}
+
+.mc-canvas {
+  display: block;
+  width: 140px;
+  height: 140px;
+  border-radius: 0.4rem;
+  background: #111;
+  cursor: default;
+}
+
+.mc-side {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.mc-estimate {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.mc-total {
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: #555;
+}
+
+.mc-sparkline {
+  display: block;
+  width: 100%;
+  max-width: 140px;
+  height: 48px;
+  border: 1px solid #eee;
+  border-radius: 0.25rem;
+  background: #fafafa;
+}
+
+.mc-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
 }
 
 .materials {
   display: grid;
   gap: 1rem;
-  margin-top: 1rem;
   padding: 1rem;
   border: 1px solid #ddd;
   border-radius: 0.5rem;
+}
+
+.scene-picker {
+  display: grid;
+  gap: 0.75rem;
+  padding: 1rem;
+  border: 1px solid #ddd;
+  border-radius: 0.5rem;
+}
+
+.scene-picker > label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.9rem;
+}
+
+.json-scene {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.json-scene label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.9rem;
+}
+
+.json-scene textarea {
+  box-sizing: border-box;
+  width: 100%;
+  font-family: ui-monospace, monospace;
+  font-size: 0.8rem;
+  resize: vertical;
+}
+
+.json-scene-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.json-error {
+  margin: 0;
+  padding: 0.5rem;
+  border: 1px solid #d33;
+  border-radius: 0.25rem;
+  background: #fdecea;
+  color: #a91b0d;
+  font-size: 0.85rem;
 }
 
 .material-control {
@@ -105,10 +340,4 @@ a {
   margin: 0;
   font-size: 0.85rem;
   color: #555;
-}
-
-@media (width <= 480px) {
-  body {
-    padding: 1rem;
-  }
 }
