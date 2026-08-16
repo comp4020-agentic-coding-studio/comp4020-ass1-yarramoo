@@ -46,6 +46,22 @@ Verified by actually opening the page and watching the panels populate,
 per the project's own "the rendered page is the truth" rule.
 [`98b3ae3`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-yarramoo/commit/98b3ae3)
 
+**A phone bug invisible from the desktop view I'd been testing in.** The
+scrollytelling redesign narrowed the narrative column so the render stayed
+visible beside it on desktop — but the phone-width fallback widens that same
+column back to full-bleed for legibility, and I hadn't noticed its CSS grid
+box (gaps between cards included) sat in front of the canvas the whole
+scroll, at every width. On desktop the narrow column left most of the
+viewport clickable regardless, so the render was still reachable and the bug
+stayed silent; on phone, the full-width column covered every pixel of the
+scrollable page, so the click-to-trace/drag-to-orbit interaction — this
+project's whole reason for existing — was completely unreachable there.
+Caught by scripting `elementFromPoint` across the full scroll range at
+390×844 rather than trusting a few screenshots, and fixed by letting
+`.story`'s own box pass pointer events through, catching them again only on
+the actual card children.
+[`447f088`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-yarramoo/commit/447f088)
+
 **Fixing the harness, not just the symptom, when a whole feature arc went
 uncommitted.** I discovered the entire book 3 arc — ~2400 lines across 19
 files — had never been committed. I reconstructed it into three
