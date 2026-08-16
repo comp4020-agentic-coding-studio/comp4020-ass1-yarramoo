@@ -1,24 +1,20 @@
 # Assignment 1 reflection
 
-**The breakthrough that moved the work forward** was realising book 3's PDF
-sampling didn't need a mode-switch bolted onto the renderer — it needed to be
-opt-in by default. Giving `Hittable` and `Material` trait methods that default
-to "behave exactly as book 1/2 already did" (`is_specular` defaults to `true`,
-`pdf_value` defaults to `0.0`) meant every existing scene and material kept
-rendering bit-for-bit identically unless it explicitly opted into the new
-machinery. That one design choice is what let me add next-event estimation,
-a mixture PDF, and a Cornell box with a real light without ever worrying I'd
-silently broken the classic three-sphere scene — and I didn't just trust the
-design, I wrote `cargo test` cases that assert cosine/mixture sampling
-converge to naive's radiance on light-less scenes, so the claim is checked,
-not assumed.
+**The breakthrough that moved the work forward** 
+Something that required intervention was Claude rapidly developing and not tracking
+work with commits that map nicely to features being developed. I had to ask Claude to 
+go back, selectively add files (it did some more clever git magic to ensure testing in-between 
+commits still passed), and commit them into logically seperate blocks. Once this was done, 
+a note was added to `CLAUDE.md` to keep up with adding small, understandable commits. 
 
-**What this changed about who I want to be as a developer** came from the
-opposite direction: discovering an entire feature arc had sat uncommitted for
-a whole session, and having to reconstruct it into commits after the fact.
-Getting the code right wasn't the failure — leaving no trail of *how* it got
-right was. I've started treating commit hygiene as part of the deliverable
-rather than administrative cleanup, and I'd rather bake that into the
-project's standing instructions than rely on remembering to do better next
-time. A process a stranger can follow is now a design constraint I hold
-myself to, not an afterthought I tidy up before submitting.
+Also notable, development seemed quite easy for Claude-code due to the tech stack. 
+Using an existing ray-tracing Rust library with simple abstractions led to 
+zero friction and issues when adding features to the ray-tracer itself. Claude 
+quickly got in the habit of adding unit tests inline using Rust's testing framework. 
+
+**What this changed about who I want to be as a developer** Firstly git hygeine will be a 
+standard addition to my `CLAUDE.md` files from now on. 
+
+Secondly it is more clear to me that having a better idea of what tools AI finds cheaper and 
+easier to work with is valuable. How long do tests take to run? With what precision can they be run 
+automatically? How many tokens are used to refactor in one tech stack vs another? 

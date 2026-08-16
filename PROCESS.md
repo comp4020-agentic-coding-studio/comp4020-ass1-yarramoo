@@ -2,13 +2,14 @@
 
 ## What I built
 
-An interactive WASM ray tracer for teaching Shirley's *Ray Tracing* series,
-built around one mechanic reused rather than duplicated: click a pixel, see
+Last year I implemented Shirley's *Ray Tracing* series, going through in Rust 
+rather than the usual C++. I always wanted to build a wrapper around the project
+to play with scenes interactively. This project does that and focuses learning 
+about ray tracing through one mechanic: click a pixel, see
 what happened to its ray. That mechanic carries book 1/2 features (materials,
 depth of field, chromatic dispersion, custom JSON scenes, a Cornell box and
 foggy room) and book 3's actual subject — orthonormal bases, PDFs, and
-next-event estimation against real light sources — pointed at the same
-click-a-pixel interaction rather than bolted on as a separate demo.
+next-event estimation against real light sources.
 
 ## The moments that mattered
 
@@ -63,14 +64,8 @@ the actual card children.
 [`447f088`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-yarramoo/commit/447f088)
 
 **Fixing the harness, not just the symptom, when a whole feature arc went
-uncommitted.** I discovered the entire book 3 arc — ~2400 lines across 19
-files — had never been committed. I reconstructed it into three
-build-verified commits using a stash-based technique (stage the target
-files, stash everything else with `--keep-index`, run the checks against
-that partial state, commit, pop), rather than one indiscriminate dump.
-That fixed the symptom but not the habit, so afterwards I added a standing
-rule to `CLAUDE.md` to commit incrementally as work lands, not at session
-end — the skilled fix, per this course's own rubric, is the one that changes
-what the agent works against.
+uncommitted.** When adding in book 3 features, the agent implemented ~2400 lines
+of code without committing any changes. I asked it to reconstruct some seperate 
+commits, but importantly added a note to `CLAUDE.md` to always commit incrementally. 
 [`b5ecb00...98b3ae3`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-yarramoo/compare/b5ecb00...98b3ae3),
 [`767d518`](https://github.com/comp4020-agentic-coding-studio/comp4020-ass1-yarramoo/commit/767d518)
