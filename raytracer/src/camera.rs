@@ -4,7 +4,18 @@ use std::{io::{self, Write}, sync::Arc};
 use rand::{Rng, RngCore};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 
-use crate::{colour::{Colour, write_colour}, hittable::Hittable, interval::Interval, ray::Ray, sample::{self, Sample}, vector::{V3, random_in_unit_disk}};
+use crate::{colour::{Colour, write_colour}, hittable::Hittable, interval::Interval, pdf::{CosinePdf, HittablePdf, MixturePdf, Pdf}, ray::Ray, sample::{self, Sample}, vector::{V3, random_in_unit_disk}};
+
+/// Which direction-sampling scheme `ray_colour` uses for non-specular
+/// (`Material::is_specular() == false`) materials. `Naive` keeps today's
+/// book-1 behaviour (`Material::scatter`'s own approximate cosine sampling)
+/// so existing scenes/tests see zero change unless a caller opts in.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SamplingStrategy {
+    Naive,
+    Cosine,
+    Mixture,
+}
 
 #[derive(Default)]
 pub struct Render {
@@ -269,7 +280,7 @@ impl Camera {
                     let mut colour = Colour::default();
                     for _ in 0..self.samples_per_pixel {
                         let ray = self.get_ray(i, j, &mut rng);
-                        colour += self.ray_colour(&ray, *world, self.max_depth, &mut rng);
+                        colour += self.ray_colour(&ray, *world, &[], SamplingStrategy::Naive, self.max_depth, &mut rng);
                     }
                     self.pixel_samples_scale * colour
                 }).collect::<Vec<_>>()
@@ -319,7 +330,16 @@ impl Camera {
         Some((i, j))
     }
 
-    pub fn ray_colour(&self, ray: &Ray, world: &impl Hittable, depth: usize, rng: &mut dyn RngCore) -> Colour {
+    #[allow(clippy::too_many_arguments)]
+    pub fn ray_colour(
+        &self,
+        ray: &Ray,
+        world: &impl Hittable,
+        lights: &[Arc<dyn Hittable>],
+        strategy: SamplingStrategy,
+        depth: usize,
+        rng: &mut dyn RngCore,
+    ) -> Colour {
         if depth == 0 { return V3::default(); }
 
         let hr = world.hit(ray, Interval::new(0.001, f64::INFINITY), rng);
@@ -328,12 +348,45 @@ impl Camera {
         }
         let hr = hr.unwrap();
         let emission = hr.material.emitted(hr.texture_coords, hr.point);
-        let scatter = hr.material.scatter(ray, &hr, rng);
-        if scatter.is_none() {
+
+        // Naive keeps today's book-1 approximation for every material, and
+        // any specular material (Metal/Dielectric/Isotropic/DispersiveGlass)
+        // always uses its own ready-made scatter ray regardless of strategy
+        // — neither has a meaningful PDF to importance-sample against.
+        if strategy == SamplingStrategy::Naive || hr.material.is_specular() {
+            let scatter = hr.material.scatter(ray, &hr, rng);
+            let Some((scattered, attenuation)) = scatter else {
+                return emission;
+            };
+            let scatter_colour = attenuation.component_mul(&self.ray_colour(&scattered, world, lights, strategy, depth-1, rng));
+            return emission + scatter_colour;
+        }
+
+        // Cosine/Mixture importance sampling: only the attenuation (albedo)
+        // from `scatter` is reused — its ray is discarded in favour of one
+        // drawn from our own PDF below.
+        let Some((_, attenuation)) = hr.material.scatter(ray, &hr, rng) else {
+            return emission;
+        };
+
+        let cosine: Arc<dyn Pdf> = Arc::new(CosinePdf::new(hr.normal));
+        let pdf: Arc<dyn Pdf> = if strategy == SamplingStrategy::Mixture && !lights.is_empty() {
+            let light_pdf: Arc<dyn Pdf> = Arc::new(HittablePdf::new(lights.to_vec(), hr.point));
+            Arc::new(MixturePdf::new(cosine, light_pdf))
+        } else {
+            cosine
+        };
+
+        let direction = pdf.generate(rng);
+        let pdf_val = pdf.value(direction);
+        if pdf_val <= 0.0 {
             return emission;
         }
-        let (scatter, attenuation) = scatter.unwrap();
-        let scatter_colour = attenuation.component_mul(&self.ray_colour(&scatter, world, depth-1, rng));
+        let scattered = Ray::new_with_time(hr.point, direction, ray.time);
+        let scattering_pdf = hr.material.scattering_pdf(ray, &hr, &scattered);
+
+        let recursive = self.ray_colour(&scattered, world, lights, strategy, depth-1, rng);
+        let scatter_colour = (attenuation.component_mul(&recursive) * scattering_pdf) / pdf_val;
         emission + scatter_colour
     }
 
